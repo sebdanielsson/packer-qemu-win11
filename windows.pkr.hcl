@@ -70,6 +70,17 @@ source "qemu" "vm" {
   iso_checksum = "${var.iso_checksum}"
   iso_target_path = "${local.iso_target_path}"
 
+  qemuargs = concat(
+    var.efi_boot ? [
+      ["-drive", "if=pflash,unit=0,file=${var.efi_firmware_code},format=raw,readonly=on"],
+      ["-drive", "if=pflash,unit=1,file=output-vm/efivars.fd,format=raw"],
+    ] : [],
+    [
+      ["-drive", "if=none,id=drive0,file=output-vm/${var.os_name}-${var.os_version}-${var.os_arch},format=qcow2,cache=writeback,discard=unmap"],
+      ["-drive", "media=cdrom,file=${local.iso_target_path}"],
+    ]
+  )
+
   boot_wait = "1s"
   boot_command = [
     "<enter>"

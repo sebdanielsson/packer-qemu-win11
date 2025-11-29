@@ -38,9 +38,36 @@ Executing /usr/bin/qemu-system-x86_64: []string{
 }
 ```
 
+We know we'll need drivers for the paravirtualized virtio hardware, so we need
+to inject the virtio-win.iso. And the way do that is by adding it as a `-drive`
+parameter to `qemuargs` [1], but... adding a `-drive` or `-device` override
+will mean that none of the default configuration Packer sets will be used. So
+let's first insert the defaults from the log output and verify everything still
+works.
+
+```hcl
+  qemuargs = concat(
+    var.efi_boot ? [
+      ["-drive", "if=pflash,unit=0,file=${var.efi_firmware_code},format=raw,readonly=on"],
+      ["-drive", "if=pflash,unit=1,file=output-vm/efivars.fd,format=raw"],
+    ] : [],
+    [
+      ["-drive", "if=none,id=drive0,file=output-vm/${var.os_name}-${var.os_version}-${var.os_arch},format=qcow2,cache=writeback,discard=unmap"],
+      ["-drive", "media=cdrom,file=${local.iso_target_path}"],
+    ]
+  )
+```
+
+I'm putting the `efi_firmware_{code,vars}` inside a conditional block so
+they're only included when `efi_boot` is `true`. Also worth noting, the
+`efi_firmware_vars` is a template, and is copied out as `efivars.fd` to live
+beside the main vm image.
+
 # Build
 
 ```shell
 PACKER_LOG=1 packer init windows.pkr.hcl
 TMPDIR=$(pwd)/tmp PACKER_LOG=1 packer build -var-file os_pkrvars/windows-11-x64.pkrvars.hcl windows.pkr.hcl
 ```
+
+[1] https://developer.hashicorp.com/packer/integrations/hashicorp/qemu/latest/components/builder/qemu#qemu-specific-configuration-reference
