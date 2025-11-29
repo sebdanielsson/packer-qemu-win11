@@ -62,6 +62,10 @@ source "qemu" "vm" {
   memory = 8192
   vga = "qxl"
 
+  floppy_files = var.os_name == "windows" ? [
+    "answer_files/${var.os_name}-${var.os_version}-${var.os_arch}/Autounattend.xml"
+  ] : []
+
   disk_interface = "virtio-scsi"
   disk_size = "60G"
   disk_discard = "unmap"

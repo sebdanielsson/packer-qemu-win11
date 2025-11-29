@@ -70,6 +70,30 @@ Now that that's taken care of, we add our virtio-win.iso with the additional
       ["-drive", "media=cdrom,file=${var.local_libvirt_images}/virtio-win.iso"],
 ```
 
+Now let's add Autounattend.xml and some drivers via floppy.
+
+```hcl
+  floppy_files = var.os_name == "windows" ? [
+    "answer_files/${var.os_name}-${var.os_version}-${var.os_arch}/Autounattend.xml"
+  ] : []
+```
+
+Adding drivers to the `Autounattend.xml` should look something like this;
+
+```xml
+...
+    <settings pass="windowsPE">
+        <component name="Microsoft-Windows-PnpCustomizationsWinPE" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+            <DriverPaths>
+                <PathAndCredentials wcm:action="add" wcm:keyValue="viostor">
+                    <Path>E:\vioscsi\w11\amd64</Path>
+                </PathAndCredentials>
+            </DriverPaths>
+            ...
+        </component>
+...
+```
+
 # Build
 
 ```shell
