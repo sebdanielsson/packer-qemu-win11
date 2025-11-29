@@ -78,6 +78,7 @@ source "qemu" "vm" {
     [
       ["-drive", "if=none,id=drive0,file=output-vm/${var.os_name}-${var.os_version}-${var.os_arch},format=qcow2,cache=writeback,discard=unmap"],
       ["-drive", "media=cdrom,file=${local.iso_target_path}"],
+      ["-drive", "media=cdrom,file=${var.local_libvirt_images}/virtio-win.iso"],
     ]
   )
 

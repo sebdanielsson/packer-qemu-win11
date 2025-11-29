@@ -63,6 +63,13 @@ they're only included when `efi_boot` is `true`. Also worth noting, the
 `efi_firmware_vars` is a template, and is copied out as `efivars.fd` to live
 beside the main vm image.
 
+Now that that's taken care of, we add our virtio-win.iso with the additional
+`-drive` parameter.
+
+```hcl
+      ["-drive", "media=cdrom,file=${var.local_libvirt_images}/virtio-win.iso"],
+```
+
 # Build
 
 ```shell
