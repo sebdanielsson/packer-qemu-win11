@@ -94,6 +94,14 @@ Adding drivers to the `Autounattend.xml` should look something like this;
 ...
 ```
 
+Now for the big dissapointment,
+
+> "This PC doesn't currently meed Windows 11 system requirements"
+
+Turns out we need to use the `*_4M.secboot.qcow2` files. And they're not `raw`
+as packer expects, but `qcow2`. Thankfully, our earlier work of putting the
+`-drives` params in `qemuargs`, this is an easy fix.
+
 # Build
 
 ```shell

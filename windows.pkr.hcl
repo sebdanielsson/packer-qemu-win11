@@ -24,11 +24,11 @@ variable "efi_boot" {
 }
 variable "efi_firmware_code" {
   type = string
-  default = "/usr/share/edk2/ovmf/OVMF_CODE.secboot.fd"
+  default = "/usr/share/edk2/ovmf/OVMF_CODE_4M.secboot.qcow2"
 }
 variable "efi_firmware_vars" {
   type = string
-  default = "/usr/share/edk2/ovmf/OVMF_VARS.secboot.fd"
+  default = "/usr/share/edk2/ovmf/OVMF_VARS_4M.secboot.qcow2"
 }
 
 variable "local_libvirt_images" {
@@ -76,8 +76,8 @@ source "qemu" "vm" {
 
   qemuargs = concat(
     var.efi_boot ? [
-      ["-drive", "if=pflash,unit=0,file=${var.efi_firmware_code},format=raw,readonly=on"],
-      ["-drive", "if=pflash,unit=1,file=output-vm/efivars.fd,format=raw"],
+      ["-drive", "if=pflash,unit=0,file=${var.efi_firmware_code},format=qcow2,readonly=on"],
+      ["-drive", "if=pflash,unit=1,file=output-vm/efivars.fd,format=qcow2"],
     ] : [],
     [
       ["-drive", "if=none,id=drive0,file=output-vm/${var.os_name}-${var.os_version}-${var.os_arch},format=qcow2,cache=writeback,discard=unmap"],
