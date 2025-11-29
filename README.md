@@ -42,5 +42,5 @@ Executing /usr/bin/qemu-system-x86_64: []string{
 
 ```shell
 PACKER_LOG=1 packer init windows.pkr.hcl
-TMPDIR=$(pwd)/tmp PACKER_LOG=1 packer build windows.pkr.hcl
+TMPDIR=$(pwd)/tmp PACKER_LOG=1 packer build -var-file os_pkrvars/windows-11-x64.pkrvars.hcl windows.pkr.hcl
 ```
