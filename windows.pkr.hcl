@@ -56,6 +56,11 @@ source "qemu" "vm" {
   vtpm = true
   tpm_device_type = "tpm-crb"
 
+  headless = true
+  vnc_bind_address = "0.0.0.0"
+  vnc_port_min = 5910
+  vnc_port_max = 5910
+
   machine_type = "q35"
   cpu_model = "host"
   cores = 4
@@ -67,7 +72,7 @@ source "qemu" "vm" {
   ] : []
 
   disk_interface = "virtio-scsi"
-  disk_size = "60G"
+  disk_size = "80G"
   disk_discard = "unmap"
 
   iso_url = "${var.iso_url}"
@@ -86,13 +91,13 @@ source "qemu" "vm" {
     ]
   )
 
-  boot_wait = "1s"
+  boot_wait = "3s"
   boot_command = [
-    "<enter>"
+    "<down><enter>"
   ]
 
   communicator = "winrm"
-  winrm_timeout = "1h30m"
+  winrm_timeout = "1h"
   winrm_username = "vagrant"
   winrm_password = "vagrant"
 }
