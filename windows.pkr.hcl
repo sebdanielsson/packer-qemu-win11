@@ -33,7 +33,11 @@ variable "efi_firmware_vars" {
 
 variable "local_libvirt_images" {
   type = string
-  default = "${ env("HOME") }/.local/share/libvirt/images"
+  default = "/chungus/isos"
+}
+variable "output_dir" {
+  type = string
+  default = "/chungus/packer-output"
 }
 variable "iso_url" {
   type = string
@@ -47,7 +51,8 @@ locals {
 }
 
 source "qemu" "vm" {
-  vm_name = "${var.os_name}-${var.os_version}-${var.os_arch}"
+  vm_name          = "${var.os_name}-${var.os_version}-${var.os_arch}"
+  output_directory = "${var.output_dir}"
 
   efi_boot = "${var.efi_boot}"
   efi_firmware_code = "${var.efi_firmware_code}"
@@ -64,7 +69,7 @@ source "qemu" "vm" {
   machine_type = "q35"
   cpu_model = "host"
   cores = 4
-  memory = 8192
+  memory = 12288
   vga = "qxl"
 
   floppy_files = var.os_name == "windows" ? [
@@ -72,7 +77,7 @@ source "qemu" "vm" {
   ] : []
 
   disk_interface = "virtio-scsi"
-  disk_size = "80G"
+  disk_size = "128G"
   disk_discard = "unmap"
 
   iso_url = "${var.iso_url}"
@@ -82,10 +87,10 @@ source "qemu" "vm" {
   qemuargs = concat(
     var.efi_boot ? [
       ["-drive", "if=pflash,unit=0,file=${var.efi_firmware_code},format=qcow2,readonly=on"],
-      ["-drive", "if=pflash,unit=1,file=output-vm/efivars.fd,format=qcow2"],
+      ["-drive", "if=pflash,unit=1,file=${var.output_dir}/efivars.fd,format=qcow2"],
     ] : [],
     [
-      ["-drive", "if=none,id=drive0,file=output-vm/${var.os_name}-${var.os_version}-${var.os_arch},format=qcow2,cache=writeback,discard=unmap"],
+      ["-drive", "if=none,id=drive0,file=${var.output_dir}/${var.os_name}-${var.os_version}-${var.os_arch},format=qcow2,cache=writeback,discard=unmap"],
       ["-drive", "media=cdrom,file=${local.iso_target_path}"],
       ["-drive", "media=cdrom,file=${var.local_libvirt_images}/virtio-win.iso"],
     ]
@@ -97,7 +102,7 @@ source "qemu" "vm" {
   ]
 
   communicator = "winrm"
-  winrm_timeout = "1h"
+  winrm_timeout = "3h"
   winrm_username = "vagrant"
   winrm_password = "vagrant"
 }
@@ -106,4 +111,17 @@ build {
   sources = [
     "source.qemu.vm"
   ]
+
+  # Reboot before VS install to clear any pending reboot state left by Windows setup.
+  # VS installer exits 267014 if it detects a pending reboot.
+  provisioner "windows-restart" {
+    restart_timeout = "15m"
+  }
+
+  provisioner "powershell" {
+    script            = "scripts/install-visual-studio.ps1"
+    elevated_user     = "vagrant"
+    elevated_password = "vagrant"
+    timeout           = "3h"
+  }
 }

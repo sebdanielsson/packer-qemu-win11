@@ -137,7 +137,7 @@ qm create 201 \
   --tpmstate chungus:4,version=v2.0 \
   --cpu host \
   --cores 4 \
-  --memory 4096 \
+  --memory 12288 \
   --net0 virtio,bridge=vmbr0 \
   --ostype win11 \
   --vga qxl \
@@ -170,6 +170,6 @@ will do a brief hardware detection pass, then boot straight to the desktop.
 | `headless` | `true` | No display server on the host; VNC is used instead |
 | `vnc_bind_address` | `0.0.0.0` | Allows connecting from outside the host |
 | `vnc_port_min/max` | `5910` | Fixed port for easy access |
-| `memory` | `8192` | Safe on bare metal; reduce to `4096` if host RAM is tight |
+| `memory` | `12288` | 12 GB recommended for VS install; 8 GB minimum |
 | `efi_firmware_code` | `/root/ovmf-qcow2/OVMF_CODE_4M.secboot.qcow2` | Proxmox ships raw `.fd`; must be converted to QCOW2 |
 | `efi_firmware_vars` | `/root/ovmf-qcow2/OVMF_VARS_4M.qcow2` | Same as above |
