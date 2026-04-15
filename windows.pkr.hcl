@@ -1,8 +1,8 @@
 packer {
-  required_version = ">= 1.7.0"
+  required_version = ">= 1.15.1"
   required_plugins {
     qemu = {
-      version = ">= 1.0.7"
+      version = ">= 1.1.4"
       source  = "github.com/hashicorp/qemu"
     }
   }
@@ -103,8 +103,8 @@ source "qemu" "vm" {
 
   communicator = "winrm"
   winrm_timeout = "3h"
-  winrm_username = "vagrant"
-  winrm_password = "vagrant"
+  winrm_username = "builder"
+  winrm_password = "changeme"
 }
 
 build {
@@ -112,16 +112,20 @@ build {
     "source.qemu.vm"
   ]
 
-  # Reboot before VS install to clear any pending reboot state left by Windows setup.
-  # VS installer exits 267014 if it detects a pending reboot.
+  # Reboot before VS install to clear any pending-reboot state left by Windows
+  # setup. VS installer exits 267014 if a reboot is still pending.
+  # Note: Windows Update via PSWindowsUpdate fails with E_ACCESSDENIED in a
+  # non-interactive WinRM session (WUA API restriction), so we skip it here.
   provisioner "windows-restart" {
-    restart_timeout = "15m"
+    restart_timeout = "30m"
   }
 
   provisioner "powershell" {
-    script            = "scripts/install-visual-studio.ps1"
-    elevated_user     = "vagrant"
-    elevated_password = "vagrant"
-    timeout           = "3h"
+    inline  = ["Write-Host '=== Reboot complete — proceeding to install Visual Studio ==='"]
+  }
+
+  provisioner "powershell" {
+    script  = "scripts/install-visual-studio.ps1"
+    timeout = "4h"
   }
 }

@@ -3,6 +3,8 @@
 
 $ErrorActionPreference = 'Stop'
 
+Write-Host "=== Step 1/1: Installing Visual Studio Professional ==="
+
 $bootstrapper = "$env:TEMP\vs_professional.exe"
 
 Write-Host "Downloading Visual Studio Professional bootstrapper..."
@@ -13,10 +15,8 @@ Write-Host "Installing Visual Studio Professional..."
 # Start-Process -Wait -PassThru is required: VS bootstrapper is a GUI app so & operator
 # returns immediately without setting $LASTEXITCODE. Each arg must be listed separately;
 # passing -ArgumentList $array joins elements into one string, causing exit code 87.
-$vsLog = "C:\vs_install_log"
 $process = Start-Process -FilePath $bootstrapper -ArgumentList `
     '--quiet', '--wait', '--norestart', `
-    '--log', $vsLog, `
     '--add', 'Microsoft.VisualStudio.Workload.ManagedDesktop', `
     '--add', 'Microsoft.VisualStudio.Workload.NetWeb', `
     '--add', 'Microsoft.VisualStudio.Workload.Azure', `
@@ -26,13 +26,6 @@ $process = Start-Process -FilePath $bootstrapper -ArgumentList `
 $vsExitCode = $process.ExitCode
 
 if ($vsExitCode -notin @(0, 3010)) {
-    # Print VS installer error log to stdout for packer to capture
-    $errLog = Get-ChildItem -Path $vsLog -Filter '*errors*' -ErrorAction SilentlyContinue |
-              Sort-Object LastWriteTime | Select-Object -Last 1
-    if ($errLog) {
-        Write-Host "=== VS installer error log ($($errLog.Name)) ==="
-        Get-Content $errLog.FullName | Select-Object -Last 100 | ForEach-Object { Write-Host $_ }
-    }
     Write-Error "VS install failed with exit code $vsExitCode"
     exit $vsExitCode
 }

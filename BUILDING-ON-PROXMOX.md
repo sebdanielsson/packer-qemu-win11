@@ -161,6 +161,32 @@ qm start 201
 Open **Proxmox UI → VM 201 → Console** to watch Windows boot. On first start it
 will do a brief hardware detection pass, then boot straight to the desktop.
 
+## Troubleshooting
+
+### VS installer exit code 267014
+
+Exit code 267014 from the VS bootstrapper inside a packer build is caused by
+**Windows Task Scheduler terminating the process**. Packer's `elevated_user` /
+`elevated_password` provisioner option wraps scripts in a scheduled task, which
+has its own execution timeout and can kill long-running processes like the VS
+installer (~90 min). See:
+https://learn.microsoft.com/en-us/answers/questions/4257963/task-scheduler-error-267014-process-terminated-by
+
+**Fix:** do not use `elevated_user` / `elevated_password` on the VS provisioner.
+Running the script directly via WinRM as `vagrant` (a local admin) is sufficient
+and avoids the scheduled task wrapper entirely. Also use `--quiet` instead of
+`--passive` since WinRM sessions are non-interactive (no desktop/window station).
+
+A pending-reboot state left by the initial Windows setup can also cause the VS
+installer to abort early. A `windows-restart` provisioner before the VS step
+clears this reliably.
+
+**Note on Windows Update:** `PSWindowsUpdate` (and the WUA COM API in general)
+returns `E_ACCESSDENIED` when called from a non-interactive WinRM session. Windows
+Update must be run from an interactive user session or via a Task Scheduler job
+with the `/IT` (interactive) flag. For golden image builds, running Windows Update
+post-deployment is simpler.
+
 ## Key Configuration Notes
 
 | Setting | Value | Reason |
@@ -170,6 +196,6 @@ will do a brief hardware detection pass, then boot straight to the desktop.
 | `headless` | `true` | No display server on the host; VNC is used instead |
 | `vnc_bind_address` | `0.0.0.0` | Allows connecting from outside the host |
 | `vnc_port_min/max` | `5910` | Fixed port for easy access |
-| `memory` | `12288` | 12 GB recommended for VS install; 8 GB minimum |
+| `memory` | `12288` | 16 GB recommended for VS install; 8 GB minimum |
 | `efi_firmware_code` | `/root/ovmf-qcow2/OVMF_CODE_4M.secboot.qcow2` | Proxmox ships raw `.fd`; must be converted to QCOW2 |
 | `efi_firmware_vars` | `/root/ovmf-qcow2/OVMF_VARS_4M.qcow2` | Same as above |
