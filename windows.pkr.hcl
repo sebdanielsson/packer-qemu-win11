@@ -18,6 +18,16 @@ variable "os_arch" {
   type = string
 }
 
+variable "winrm_username" {
+  type = string
+  description = "Username for WinRM connection"
+}
+variable "winrm_password" {
+  type = string
+  sensitive = true
+  description = "Password for WinRM connection"
+}
+
 variable "efi_boot" {
   type = bool
   default = true
@@ -103,8 +113,8 @@ source "qemu" "vm" {
 
   communicator = "winrm"
   winrm_timeout = "3h"
-  winrm_username = "builder"
-  winrm_password = "changeme"
+  winrm_username = var.winrm_username
+  winrm_password = var.winrm_password
 }
 
 build {
