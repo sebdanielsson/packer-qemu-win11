@@ -107,7 +107,7 @@ Packer will:
 
 1. Download the Windows 11 ISO (~5 GB, skipped if already cached)
 2. Boot Windows in QEMU with the `Autounattend.xml` floppy injected
-3. Windows installs unattended, installs virtio drivers, creates the `vagrant` user
+3. Windows installs unattended, installs virtio drivers, creates the `builder` user
 4. On first logon, WinRM is configured automatically
 5. Packer connects via WinRM, gracefully shuts down the VM
 6. `qemu-img convert` compacts the output disk
@@ -173,7 +173,7 @@ installer (~90 min). See:
 https://learn.microsoft.com/en-us/answers/questions/4257963/task-scheduler-error-267014-process-terminated-by
 
 **Fix:** do not use `elevated_user` / `elevated_password` on the VS provisioner.
-Running the script directly via WinRM as `vagrant` (a local admin) is sufficient
+Running the script directly via WinRM as `builder` (a local admin) is sufficient
 and avoids the scheduled task wrapper entirely. Also use `--quiet` instead of
 `--passive` since WinRM sessions are non-interactive (no desktop/window station).
 

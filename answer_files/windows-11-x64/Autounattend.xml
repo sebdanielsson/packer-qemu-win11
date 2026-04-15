@@ -154,8 +154,8 @@
                     <WillShowUI>OnError</WillShowUI>
                 </ProductKey>
                 <AcceptEula>true</AcceptEula>
-                <FullName>Vagrant</FullName>
-                <Organization>Vagrant Inc.</Organization>
+                <FullName>Builder</FullName>
+                <Organization>Builder Inc.</Organization>
             </UserData>
         </component>
     </settings>
@@ -192,28 +192,28 @@
             <TimeZone>UTC</TimeZone>
             <UserAccounts>
                 <AdministratorPassword>
-                    <Value>vagrant</Value>
+                    <Value>changeme</Value>
                     <PlainText>true</PlainText>
                 </AdministratorPassword>
                 <LocalAccounts>
                     <LocalAccount wcm:action="add">
                         <Password>
-                            <Value>vagrant</Value>
+                            <Value>changeme</Value>
                             <PlainText>true</PlainText>
                         </Password>
-                        <Description>Vagrant User</Description>
-                        <DisplayName>vagrant</DisplayName>
+                        <Description>Builder User</Description>
+                        <DisplayName>builder</DisplayName>
                         <Group>administrators</Group>
-                        <Name>vagrant</Name>
+                        <Name>builder</Name>
                     </LocalAccount>
                 </LocalAccounts>
             </UserAccounts>
             <AutoLogon>
                 <Password>
-                    <Value>vagrant</Value>
+                    <Value>changeme</Value>
                     <PlainText>true</PlainText>
                 </Password>
-                <Username>vagrant</Username>
+                <Username>builder</Username>
                 <Enabled>true</Enabled>
             </AutoLogon>
             <FirstLogonCommands>
@@ -299,8 +299,8 @@
                 </SynchronousCommand>
                 <SynchronousCommand wcm:action="add">
                     <Order>17</Order>
-                    <CommandLine>%windir%\System32\cmd.exe /c wmic useraccount where "name='vagrant'" set PasswordExpires=FALSE</CommandLine>
-                    <Description>Disable password expiration for vagrant user</Description>
+                    <CommandLine>%windir%\System32\cmd.exe /c wmic useraccount where "name='builder'" set PasswordExpires=FALSE</CommandLine>
+                    <Description>Disable password expiration for builder user</Description>
                 </SynchronousCommand>
             </FirstLogonCommands>
         </component>

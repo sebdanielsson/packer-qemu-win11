@@ -31,4 +31,4 @@ Set-Content -Path $authKeysFile -Value $pubKey -Encoding UTF8
 # Fix permissions: must be owned by SYSTEM/Administrators only (OpenSSH strict check)
 icacls $authKeysFile /inheritance:r /grant "Administrators:F" /grant "SYSTEM:F" | Out-Null
 
-Write-Host "OpenSSH debug setup complete. Connect with: ssh vagrant@<vm-ip>"
+Write-Host "OpenSSH debug setup complete. Connect with: ssh builder@<vm-ip>"
