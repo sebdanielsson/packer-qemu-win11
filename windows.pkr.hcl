@@ -79,7 +79,7 @@ source "qemu" "vm" {
   machine_type = "q35"
   cpu_model = "host"
   cores = 4
-  memory = 12288
+  memory = 8192
   vga = "qxl"
 
   floppy_files = var.os_name == "windows" ? [
