@@ -112,7 +112,7 @@ source "qemu" "vm" {
   ]
 
   communicator = "winrm"
-  winrm_timeout = "3h"
+  winrm_timeout = "5h"
   winrm_username = var.winrm_username
   winrm_password = var.winrm_password
 }
