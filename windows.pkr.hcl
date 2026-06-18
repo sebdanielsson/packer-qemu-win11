@@ -28,6 +28,12 @@ variable "winrm_password" {
   description = "Password for WinRM connection"
 }
 
+variable "generalize" {
+  type        = bool
+  default     = false
+  description = "Run Sysprep /generalize at the end so the image is a reusable template (unique identity per instance). Leave false for a non-generalized image that boots straight to the configured desktop."
+}
+
 variable "efi_boot" {
   type = bool
   default = true
@@ -119,6 +125,14 @@ source "qemu" "vm" {
   winrm_timeout = "5h"
   winrm_username = var.winrm_username
   winrm_password = var.winrm_password
+
+  # When generalize=true, the final shutdown runs Sysprep /generalize so the
+  # image becomes a reusable template (unique hostname/SID per deployed instance
+  # via answer_files/.../sysprep-unattend.xml). When false (default), the build
+  # shuts down normally and stays a non-generalized "boots-straight-to-desktop"
+  # image. Sysprep can take several minutes, so allow a generous timeout.
+  shutdown_command = var.generalize ? "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\sysprep-generalize.ps1" : ""
+  shutdown_timeout = "30m"
 }
 
 build {
@@ -141,5 +155,26 @@ build {
   provisioner "powershell" {
     script  = "scripts/install-visual-studio.ps1"
     timeout = "4h"
+  }
+
+  # Bundle (but do not configure) the Azure Pipelines agent into the image.
+  provisioner "powershell" {
+    script  = "scripts/install-azure-pipelines-agent.ps1"
+    timeout = "30m"
+  }
+
+  # Stage the enrollment + sysprep helpers so the image (and generalize step)
+  # can use them. C:\azp already exists from the agent install above.
+  provisioner "file" {
+    source      = "scripts/enroll-azure-pipelines-agent.ps1"
+    destination = "C:\\azp\\enroll-azure-pipelines-agent.ps1"
+  }
+  provisioner "file" {
+    source      = "answer_files/windows-2025-x64/sysprep-unattend.xml"
+    destination = "C:\\sysprep-unattend.xml"
+  }
+  provisioner "file" {
+    source      = "scripts/sysprep-generalize.ps1"
+    destination = "C:\\sysprep-generalize.ps1"
   }
 }
