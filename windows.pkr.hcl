@@ -68,8 +68,12 @@ source "qemu" "vm" {
   efi_firmware_code = "${var.efi_firmware_code}"
   efi_firmware_vars = "${var.efi_firmware_vars}"
 
-  vtpm = true
-  tpm_device_type = "tpm-crb"
+  # vTPM disabled: the host's swtpm is apparmor-restricted (sys_resource/sys_admin
+  # DENIED) after a Proxmox update, and an unresponsive TPM-CRB device makes
+  # Windows Server 2025 spin forever at early boot (zero disk I/O, zero video).
+  # Server 2025 needs no TPM to install or boot; OpenShift/KubeVirt can attach its
+  # own vTPM to the deployed VM if ever required.
+  vtpm = false
 
   headless = true
   vnc_bind_address = "0.0.0.0"
@@ -79,7 +83,7 @@ source "qemu" "vm" {
   machine_type = "q35"
   cpu_model = "host"
   cores = 4
-  memory = 8192
+  memory = 4096
   vga = "qxl"
 
   floppy_files = var.os_name == "windows" ? [
