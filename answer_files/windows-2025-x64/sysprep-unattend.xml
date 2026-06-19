@@ -17,6 +17,14 @@
       - agent enrollment runs IF C:\azp\enroll.json is present (dropped at deploy)
 -->
 <unattend xmlns="urn:schemas-microsoft-com:unattend">
+    <!-- SkipRearm on generalize so re-running sysprep /generalize (in-place tweaks,
+         or KubeVirt) doesn't decrement the activation rearm counter and hit
+         SLReArmWindows 0xc004d307 ("max re-arms exceeded"). -->
+    <settings pass="generalize">
+        <component name="Microsoft-Windows-Security-SPP" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+            <SkipRearm>1</SkipRearm>
+        </component>
+    </settings>
     <settings pass="specialize">
         <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
             <!-- "*" => Windows generates a random, unique computer name per instance -->
