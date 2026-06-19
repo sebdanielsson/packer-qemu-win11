@@ -28,4 +28,9 @@ Set-Dword 'HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Reliability' 'ShutdownRe
 Set-Dword 'HKLM:\SOFTWARE\Microsoft\ServerManager' 'DoNotOpenServerManagerAtLogon' 1
 Disable-ScheduledTask -TaskPath '\Microsoft\Windows\Server Manager\' -TaskName 'ServerManager' -ErrorAction SilentlyContinue | Out-Null
 
+# 3. Suppress the per-user first-logon privacy/diagnostic-data OOBE prompt, which
+#    Server 2025 shows on first interactive sign-in despite SkipUserOOBE. Keeps
+#    the deployed agent's desktop clean (no foreground prompt on boot).
+Set-Dword 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\OOBE' 'DisablePrivacyExperience' 1
+
 Write-Host "Build-server hardening applied."

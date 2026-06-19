@@ -183,6 +183,12 @@ build {
     timeout = "60m"
   }
 
+  # Extra dev tooling: mise + latest stable Google Chrome.
+  provisioner "powershell" {
+    script  = "scripts/install-dev-tools.ps1"
+    timeout = "60m"
+  }
+
   # Stage the enrollment + sysprep helpers next to each bundled agent. C:\azp and
   # C:\actions-runner already exist from the installs above.
   provisioner "file" {
