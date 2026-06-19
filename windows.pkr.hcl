@@ -164,16 +164,27 @@ build {
     timeout = "4h"
   }
 
-  # Bundle (but do not configure) the Azure Pipelines agent into the image.
+  # Bundle (but do not configure) BOTH CI agents into the image, so one golden
+  # image can become either an Azure Pipelines agent or a GitHub runner — the
+  # choice is made at provision/boot time by whichever enroll script runs.
   provisioner "powershell" {
     script  = "scripts/install-azure-pipelines-agent.ps1"
     timeout = "30m"
   }
+  provisioner "powershell" {
+    script  = "scripts/install-github-runner.ps1"
+    timeout = "30m"
+  }
 
-  # Stage the enrollment + sysprep helpers. C:\azp already exists from the install.
+  # Stage the enrollment + sysprep helpers next to each bundled agent. C:\azp and
+  # C:\actions-runner already exist from the installs above.
   provisioner "file" {
     source      = "scripts/enroll-azure-pipelines-agent.ps1"
     destination = "C:\\azp\\enroll-azure-pipelines-agent.ps1"
+  }
+  provisioner "file" {
+    source      = "scripts/enroll-github-runner.ps1"
+    destination = "C:\\actions-runner\\enroll-github-runner.ps1"
   }
   provisioner "file" {
     source      = "answer_files/windows-2025-x64/sysprep-unattend.xml"

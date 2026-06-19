@@ -96,13 +96,23 @@ spec:
           pvc: { namespace: <ns>, name: win2025-vs2026-golden }   # clone the golden PVC
 ```
 
-## 4. Auto-enrolling the agent (the part we deferred)
+## 4. Choosing Azure Pipelines *or* GitHub at deploy time
 
-The image ships the agent pre-bundled at `C:\azp\agent` plus
-`C:\azp\enroll-azure-pipelines-agent.ps1`. The baked sysprep run executes the
-enrollment **only if `C:\azp\enroll.json` exists**. To turn auto-enroll on, make
-the sysprep media a **Secret** whose `autounattend.xml` adds a FirstLogonCommand
-that writes `enroll.json` before the enrollment command runs, e.g.:
+The image bundles **both** CI agents, unconfigured, so one template serves both:
+
+| | bundled at | enroll script | autostart |
+| --- | --- | --- | --- |
+| Azure Pipelines | `C:\azp\agent` | `C:\azp\enroll-azure-pipelines-agent.ps1` | yes (`--runAsService`) |
+| GitHub Actions  | `C:\actions-runner` | `C:\actions-runner\enroll-github-runner.ps1` | **no** (decide at boot) |
+
+The baked sysprep run (Order 2 in `sysprep-unattend.xml`) auto-runs the **Azure**
+enrollment only if `C:\azp\enroll.json` exists. To make an instance an Azure
+agent, drop that file at deploy time; to make it a GitHub runner, drop
+`C:\actions-runner\enroll.json` and invoke `enroll-github-runner.ps1` instead.
+Nothing autostarts until one of those is present — that's the boot-time switch.
+
+Drop the secrets via a **Secret**-backed sysprep `autounattend.xml` whose
+FirstLogonCommand writes the relevant `enroll.json`, e.g. for Azure:
 
 ```xml
 <SynchronousCommand wcm:action="add">
@@ -111,11 +121,14 @@ that writes `enroll.json` before the enrollment command runs, e.g.:
 </SynchronousCommand>
 ```
 
-Then the existing `Order 2` enrollment command picks it up. Keep the PAT in a
-Secret, not a ConfigMap. (Alternatively call `config.cmd` directly with the PAT.)
+For GitHub, write `C:\actions-runner\enroll.json` (`Url`, `Token`, `Labels`, …)
+and add a FirstLogonCommand running `enroll-github-runner.ps1` (add `-AsService`
+only when you actually want it to autostart).
 
-PAT scope required: **Agent Pools (read & manage)**. For on-prem Azure DevOps
-Server, `OrgUrl` is the collection URL `https://<server>/<collection>`.
+Secrets/scopes: Azure PAT needs **Agent Pools (read & manage)**; on-prem Azure
+DevOps Server `OrgUrl` is the collection URL `https://<server>/<collection>`.
+GitHub needs a short-lived **registration token** (generate via the API with a
+PAT, or from Settings → Actions → Runners); `Url` is org- or repo-level.
 
 ## 5. Notes
 - The agent runs as the `VstsAgent` Windows service (auto-start), so the VM
