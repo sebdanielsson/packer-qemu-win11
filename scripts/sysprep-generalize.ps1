@@ -18,9 +18,35 @@ $ErrorActionPreference = 'Stop'
 $sysprep = "$env:windir\System32\Sysprep\sysprep.exe"
 if (-not (Test-Path $UnattendPath)) { throw "Sysprep answer file not found: $UnattendPath" }
 
-# Surface anything that commonly blocks generalize (e.g. half-installed AppX).
-Write-Host "Running Sysprep /generalize /oobe /shutdown /mode:vm ..."
-& $sysprep /generalize /oobe /shutdown /mode:vm "/unattend:$UnattendPath"
+# Safety net: ensure the WU/Update-Orchestrator services are stopped+disabled
+# before sysprep — its GeneralizeForImaging (wuaueng.dll) step hangs forever if
+# they're active. disable-windows-update.ps1 normally already did this at build
+# time; this is idempotent.
+Write-Host "Ensuring Windows Update services are stopped (avoids the wuaueng GeneralizeForImaging hang)..."
+foreach ($svc in 'wuauserv','UsoSvc','WaaSMedicSvc','bits') {
+    Stop-Service -Force -Name $svc -ErrorAction SilentlyContinue
+    Set-Service  -Name $svc -StartupType Disabled -ErrorAction SilentlyContinue
+}
+Start-Sleep -Seconds 3
+
+# Clear the Windows Update datastore. sysprep's GeneralizeForImaging (wuaueng.dll)
+# hangs while processing a populated SoftwareDistribution store; an empty store
+# lets it complete immediately. WU is disabled, so it won't be recreated.
+try {
+    $sd = 'C:\Windows\SoftwareDistribution'
+    if (Test-Path $sd) {
+        Rename-Item -Path $sd -NewName ("SoftwareDistribution.bak_" + (Get-Date -Format 'yyyyMMddHHmmss')) -ErrorAction Stop
+        Write-Host "Renamed SoftwareDistribution (cleared WU datastore)."
+    }
+} catch {
+    Write-Host "WARNING: could not clear SoftwareDistribution: $_"
+}
+
+# /quiet is REQUIRED for non-interactive runs (packer/WinRM, session 0): without
+# it, sysprep can pop a message box that blocks invisibly forever instead of
+# erroring. /mode:vm skips physical-hardware generalization (VM-to-VM template).
+Write-Host "Running Sysprep /generalize /oobe /shutdown /quiet /mode:vm ..."
+& $sysprep /generalize /oobe /shutdown /quiet /mode:vm "/unattend:$UnattendPath"
 # Note: on success the VM powers off; if sysprep errors it returns non-zero and
 # the VM stays up — check C:\Windows\System32\Sysprep\Panther\setuperr.log.
 if ($LASTEXITCODE -ne 0) { throw "Sysprep failed ($LASTEXITCODE) — see C:\Windows\System32\Sysprep\Panther\setuperr.log" }

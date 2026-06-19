@@ -149,7 +149,14 @@ build {
   }
 
   provisioner "powershell" {
-    inline  = ["Write-Host '=== Reboot complete — proceeding to install Visual Studio ==='"]
+    inline  = ["Write-Host '=== Reboot complete — proceeding ==='"]
+  }
+
+  # Disable Windows Update first: keeps the build/runtime deterministic and
+  # avoids the sysprep GeneralizeForImaging (wuaueng.dll) hang.
+  provisioner "powershell" {
+    script  = "scripts/disable-windows-update.ps1"
+    timeout = "15m"
   }
 
   provisioner "powershell" {
@@ -163,8 +170,7 @@ build {
     timeout = "30m"
   }
 
-  # Stage the enrollment + sysprep helpers so the image (and generalize step)
-  # can use them. C:\azp already exists from the agent install above.
+  # Stage the enrollment + sysprep helpers. C:\azp already exists from the install.
   provisioner "file" {
     source      = "scripts/enroll-azure-pipelines-agent.ps1"
     destination = "C:\\azp\\enroll-azure-pipelines-agent.ps1"

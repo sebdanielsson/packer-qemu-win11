@@ -70,6 +70,8 @@
                     <CommandLine>%windir%\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Get-NetConnectionProfile | Set-NetConnectionProfile -NetworkCategory Private -ErrorAction SilentlyContinue; Enable-PSRemoting -Force -SkipNetworkProfileCheck; Set-Item -Force WSMan:\localhost\Service\Auth\Basic -Value $true; Set-Item -Force WSMan:\localhost\Service\AllowUnencrypted -Value $true; Set-Service WinRM -StartupType Automatic; Restart-Service WinRM" *&gt; C:\Windows\Temp\winrm-setup.log</CommandLine>
                     <Description>Re-enable WinRM (Basic + unencrypted)</Description>
                 </SynchronousCommand>
+                <!-- Windows Update is intentionally left disabled on deployed agents
+                     (patch by rebuilding the image, not in place). -->
                 <SynchronousCommand wcm:action="add">
                     <Order>2</Order>
                     <CommandLine>%windir%\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "if (Test-Path C:\azp\enroll.json) { &amp; C:\azp\enroll-azure-pipelines-agent.ps1 }"</CommandLine>
