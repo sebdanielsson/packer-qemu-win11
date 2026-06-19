@@ -149,7 +149,7 @@ build {
   }
 
   provisioner "powershell" {
-    inline  = ["Write-Host '=== Reboot complete — proceeding ==='"]
+    inline  = ["Write-Host '=== Reboot complete - proceeding ==='"]
   }
 
   # Disable Windows Update first: keeps the build/runtime deterministic and

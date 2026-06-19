@@ -5,11 +5,11 @@
 .DESCRIPTION
     Resets the machine SID and machine-specific state and powers the VM off.
     On the next boot the image re-runs specialize/OOBE using the supplied
-    answer file (sysprep-unattend.xml) — giving each deployed instance a unique
+    answer file (sysprep-unattend.xml) - giving each deployed instance a unique
     hostname/SID. This is the Phase-2 step for fleet deployment on OpenShift.
 
     Run as the LAST step before shutdown (it powers the machine off itself).
-    `/mode:vm` skips physical-hardware generalization — correct and faster for
+    `/mode:vm` skips physical-hardware generalization - correct and faster for
     a VM-to-VM (Proxmox -> OpenShift/KubeVirt) golden image.
 #>
 param([string]$UnattendPath = 'C:\sysprep-unattend.xml')
@@ -19,7 +19,7 @@ $sysprep = "$env:windir\System32\Sysprep\sysprep.exe"
 if (-not (Test-Path $UnattendPath)) { throw "Sysprep answer file not found: $UnattendPath" }
 
 # Safety net: ensure the WU/Update-Orchestrator services are stopped+disabled
-# before sysprep — its GeneralizeForImaging (wuaueng.dll) step hangs forever if
+# before sysprep - its GeneralizeForImaging (wuaueng.dll) step hangs forever if
 # they're active. disable-windows-update.ps1 normally already did this at build
 # time; this is idempotent.
 Write-Host "Ensuring Windows Update services are stopped (avoids the wuaueng GeneralizeForImaging hang)..."
@@ -47,6 +47,12 @@ try {
 # erroring. /mode:vm skips physical-hardware generalization (VM-to-VM template).
 Write-Host "Running Sysprep /generalize /oobe /shutdown /quiet /mode:vm ..."
 & $sysprep /generalize /oobe /shutdown /quiet /mode:vm "/unattend:$UnattendPath"
-# Note: on success the VM powers off; if sysprep errors it returns non-zero and
-# the VM stays up — check C:\Windows\System32\Sysprep\Panther\setuperr.log.
-if ($LASTEXITCODE -ne 0) { throw "Sysprep failed ($LASTEXITCODE) — see C:\Windows\System32\Sysprep\Panther\setuperr.log" }
+# On success the VM powers off itself. If sysprep errored it returns non-zero and
+# does NOT shut down - in that case power off anyway so packer still keeps the
+# build artifact (as a non-generalized image, which verification will catch)
+# rather than erroring and deleting hours of work. Check setuperr.log if so.
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "WARNING: Sysprep returned $LASTEXITCODE (see C:\Windows\System32\Sysprep\Panther\setuperr.log). Shutting down anyway to preserve the artifact."
+    Start-Sleep -Seconds 5
+    Stop-Computer -Force
+}

@@ -9,7 +9,7 @@
     DevOps Server and installing it as an auto-start Windows service.
 
     Secrets (org URL, PAT, pool) can come from parameters OR from a JSON file at
-    C:\azp\enroll.json — which is the hook OpenShift/KubeVirt (or Proxmox cloud-
+    C:\azp\enroll.json - which is the hook OpenShift/KubeVirt (or Proxmox cloud-
     init) drops in at deploy time from a Secret/ConfigMap. Example enroll.json:
         {
           "OrgUrl":    "https://devops.example.local/DefaultCollection",
@@ -55,7 +55,7 @@ if (-not $AgentName) { $AgentName = $env:COMPUTERNAME }
 foreach ($p in 'OrgUrl','Pool','Token') {
     if (-not (Get-Variable $p -ValueOnly)) { throw "Missing required value: $p (pass -$p or set it in $ConfigFile)" }
 }
-if (-not (Test-Path "$AgentDir\config.cmd")) { throw "Agent not bundled at $AgentDir — run install-azure-pipelines-agent.ps1 in the image first." }
+if (-not (Test-Path "$AgentDir\config.cmd")) { throw "Agent not bundled at $AgentDir - run install-azure-pipelines-agent.ps1 in the image first." }
 
 $cfgArgs = @(
     '--unattended',

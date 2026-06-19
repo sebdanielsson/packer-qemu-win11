@@ -1,5 +1,5 @@
 # Bundle the Azure Pipelines agent into the golden image (NOT configured here).
-# Uses the trimmed "pipelines-agent" package (no legacy Node handlers) — smaller
+# Uses the trimmed "pipelines-agent" package (no legacy Node handlers) - smaller
 # than the full "vsts-agent" package. Enrollment to a pool happens later, at
 # provision time, via scripts/enroll-azure-pipelines-agent.ps1.
 $ErrorActionPreference = 'Stop'
@@ -29,7 +29,7 @@ Expand-Archive -Path $Zip -DestinationPath $AgentDir -Force
 Remove-Item $Zip -Force
 
 if (-not (Test-Path "$AgentDir\config.cmd")) {
-    throw "config.cmd not found after extraction — agent package layout changed?"
+    throw "config.cmd not found after extraction - agent package layout changed?"
 }
 
 # Record what we bundled so the enrollment script / audits can read it.

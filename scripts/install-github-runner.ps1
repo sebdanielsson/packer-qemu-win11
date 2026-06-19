@@ -31,7 +31,7 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 Remove-Item $Zip -Force
 
 if (-not (Test-Path "$Dir\config.cmd")) {
-    throw "config.cmd not found after extraction — runner package layout changed?"
+    throw "config.cmd not found after extraction - runner package layout changed?"
 }
 
 [pscustomobject]@{

@@ -6,7 +6,7 @@
     Run this at PROVISION time, not in the golden image. It configures the
     runner that install-github-runner.ps1 staged at C:\actions-runner.
 
-    Per design, this does NOT install an auto-start service by default — so a
+    Per design, this does NOT install an auto-start service by default - so a
     freshly-booted VM stays neutral until something decides "Azure vs GitHub".
     Pass -AsService to install the runner as a service, and/or -Start to launch
     run.cmd once now.
@@ -62,7 +62,7 @@ if (-not $Name) { $Name = $env:COMPUTERNAME }
 foreach ($p in 'Url','Token') {
     if (-not (Get-Variable $p -ValueOnly)) { throw "Missing required value: $p (pass -$p or set it in $ConfigFile)" }
 }
-if (-not (Test-Path "$Dir\config.cmd")) { throw "Runner not bundled at $Dir — run install-github-runner.ps1 in the image first." }
+if (-not (Test-Path "$Dir\config.cmd")) { throw "Runner not bundled at $Dir - run install-github-runner.ps1 in the image first." }
 
 $cfgArgs = @(
     '--unattended',
