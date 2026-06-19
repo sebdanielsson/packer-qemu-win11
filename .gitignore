@@ -1,0 +1,8 @@
+# One-off operational/debug scripts (not part of the build).
+tmp/*.py
+tmp/*.sh
+# Build artifacts / captures.
+*.pcap
+*.qcow2
+*.fd
+packer_cache/
