@@ -9,7 +9,7 @@ import socket, struct, sys, time
 
 NAMED = {"Return":0xFF0D,"Enter":0xFF0D,"Tab":0xFF09,"Escape":0xFF1B,
          "BackSpace":0xFF08,"Super_L":0xFFEB,"Super":0xFFEB,"Shift_L":0xFFE1,
-         "Control_L":0xFFE3,"Alt_L":0xFFE9,"space":0x20}
+         "Control_L":0xFFE3,"Alt_L":0xFFE9,"space":0x20,"Delete":0xFFFF}
 host, port, script = sys.argv[1], int(sys.argv[2]), sys.argv[3]
 s = socket.create_connection((host, port), timeout=20); s.settimeout(20)
 def recvn(n):

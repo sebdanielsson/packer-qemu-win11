@@ -37,10 +37,5 @@ Invoke-WebRequest -Uri 'https://dot.net/v1/dotnet-install.ps1' `
     -OutFile "$env:TEMP\dotnet-install.ps1" -UseBasicParsing
 & "$env:TEMP\dotnet-install.ps1" -Channel 10.0 -InstallDir 'C:\Program Files\dotnet'
 
-# Install latest stable PowerShell (7.x)
-Write-Host "Installing latest stable PowerShell..."
-Invoke-WebRequest -Uri 'https://aka.ms/install-powershell.ps1' `
-    -OutFile "$env:TEMP\install-powershell.ps1" -UseBasicParsing
-& "$env:TEMP\install-powershell.ps1" -UseMSI -Quiet
-
+# Note: PowerShell 7 is installed in the BASE image (scripts/install-powershell.ps1).
 Write-Host "Done."
