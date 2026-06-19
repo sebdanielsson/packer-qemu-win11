@@ -159,6 +159,13 @@ build {
     timeout = "15m"
   }
 
+  # Build-server cleanup: disable the Shutdown Event Tracker modal and Server
+  # Manager auto-start at logon. (HKLM settings — survive sysprep /generalize.)
+  provisioner "powershell" {
+    script  = "scripts/harden-build-server.ps1"
+    timeout = "10m"
+  }
+
   provisioner "powershell" {
     script  = "scripts/install-visual-studio.ps1"
     timeout = "4h"
