@@ -25,7 +25,11 @@ if ($actual -ne $Sha256) {
     throw "SHA256 mismatch for agent package: expected $Sha256, got $actual"
 }
 Write-Host "Checksum OK. Extracting to $AgentDir ..."
-Expand-Archive -Path $Zip -DestinationPath $AgentDir -Force
+# Use ZipFile::ExtractToDirectory (one fast .NET call) rather than Expand-Archive,
+# which is pathologically slow for the agent's ~2200 small files on slow storage
+# (it blew past the 30-min provisioner timeout otherwise).
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+[System.IO.Compression.ZipFile]::ExtractToDirectory($Zip, $AgentDir)
 Remove-Item $Zip -Force
 
 if (-not (Test-Path "$AgentDir\config.cmd")) {

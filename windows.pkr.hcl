@@ -176,11 +176,11 @@ build {
   # choice is made at provision/boot time by whichever enroll script runs.
   provisioner "powershell" {
     script  = "scripts/install-azure-pipelines-agent.ps1"
-    timeout = "30m"
+    timeout = "60m"
   }
   provisioner "powershell" {
     script  = "scripts/install-github-runner.ps1"
-    timeout = "30m"
+    timeout = "60m"
   }
 
   # Stage the enrollment + sysprep helpers next to each bundled agent. C:\azp and
