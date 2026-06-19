@@ -1,42 +1,78 @@
 # Extra dev tooling bundled into the image: mise (dev-tool version manager) and
 # the latest stable Google Chrome. ASCII only (Windows PowerShell reads .ps1 as
 # ANSI; non-ASCII breaks parsing).
-$ErrorActionPreference = 'Stop'
+#
+# Best-effort: a flaky download must NEVER fail a multi-hour build. Each tool is
+# retried + validated; on persistent failure we log a warning and continue (the
+# image is still useful, and verification will flag a missing tool).
+$ErrorActionPreference = 'Continue'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
+function Get-FileWithRetry {
+    param($Url, $OutFile, [int]$MinBytes = 1, [string]$Sha256 = $null, [int]$Tries = 4)
+    for ($i = 1; $i -le $Tries; $i++) {
+        try {
+            Remove-Item $OutFile -Force -ErrorAction SilentlyContinue
+            Invoke-WebRequest -Uri $Url -OutFile $OutFile -UseBasicParsing
+            $len = (Get-Item $OutFile).Length
+            if ($len -lt $MinBytes) { throw "too small ($len bytes, expected >= $MinBytes) - partial/blocked download" }
+            if ($Sha256) {
+                $h = (Get-FileHash -Algorithm SHA256 -Path $OutFile).Hash
+                if ($h -ne $Sha256) { throw "sha256 mismatch ($h)" }
+            } else {
+                # No fixed checksum (always-latest URL): sanity-check it's a real MSI
+                # (OLE compound-file magic D0 CF 11 E0) when the name ends in .msi.
+                if ($OutFile -match '\.msi$') {
+                    $fs = [IO.File]::OpenRead($OutFile); $b = New-Object byte[] 8; [void]$fs.Read($b, 0, 8); $fs.Close()
+                    if (-not ($b[0] -eq 0xD0 -and $b[1] -eq 0xCF -and $b[2] -eq 0x11 -and $b[3] -eq 0xE0)) {
+                        throw "not a valid MSI (bad magic bytes)"
+                    }
+                }
+            }
+            return $true
+        } catch {
+            Write-Host "  download attempt $i/$Tries failed: $_"
+            Start-Sleep -Seconds (5 * $i)
+        }
+    }
+    return $false
+}
+
 Write-Host "=== Installing Google Chrome (latest stable, enterprise MSI) ==="
-# This URL always serves the current stable enterprise build, so it is not pinned.
 $chromeMsi = "$env:TEMP\chrome-enterprise.msi"
-Invoke-WebRequest -Uri 'https://dl.google.com/edgedl/chrome/install/GoogleChromeStandaloneEnterprise64.msi' `
-    -OutFile $chromeMsi -UseBasicParsing
-$p = Start-Process msiexec.exe -ArgumentList '/i', $chromeMsi, '/qn', '/norestart' -Wait -PassThru
-if ($p.ExitCode -notin @(0, 3010)) { throw "Chrome MSI install failed with exit code $($p.ExitCode)" }
-Remove-Item $chromeMsi -Force
-Write-Host "Chrome installed."
+# always-latest stable enterprise build (not pinned); ~150 MB, so require >= 100 MB
+if (Get-FileWithRetry -Url 'https://dl.google.com/edgedl/chrome/install/GoogleChromeStandaloneEnterprise64.msi' `
+        -OutFile $chromeMsi -MinBytes 100MB) {
+    $p = Start-Process msiexec.exe -ArgumentList '/i', $chromeMsi, '/qn', '/norestart' -Wait -PassThru
+    if ($p.ExitCode -in @(0, 3010)) { Write-Host "Chrome installed." }
+    else { Write-Warning "Chrome MSI returned $($p.ExitCode); continuing without Chrome." }
+    Remove-Item $chromeMsi -Force -ErrorAction SilentlyContinue
+} else {
+    Write-Warning "Chrome download failed after retries; continuing without Chrome."
+}
 
 Write-Host "=== Installing mise (dev-tool version manager) ==="
 # Bump $MiseVersion + $MiseSha256 together from https://github.com/jdx/mise/releases
 $MiseVersion = '2026.6.11'
 $MiseSha256  = 'AE6FA8C6D88F4D368E589B6C9936C09F552CDA717600123369DCA007CED33ECC'
 $miseZip = "$env:TEMP\mise.zip"
-Invoke-WebRequest -Uri "https://github.com/jdx/mise/releases/download/v$MiseVersion/mise-v$MiseVersion-windows-x64.zip" `
-    -OutFile $miseZip -UseBasicParsing
-$actual = (Get-FileHash -Algorithm SHA256 -Path $miseZip).Hash
-if ($actual -ne $MiseSha256) { throw "mise SHA256 mismatch: expected $MiseSha256, got $actual" }
-
-$dest = 'C:\Program Files\mise'
-$tmp  = "$env:TEMP\mise-extract"
-Remove-Item $dest, $tmp -Recurse -Force -ErrorAction SilentlyContinue
-Expand-Archive -Path $miseZip -DestinationPath $tmp -Force      # zip contains a top-level 'mise\' dir
-Move-Item -Path "$tmp\mise" -Destination $dest
-Remove-Item $miseZip, $tmp -Recurse -Force -ErrorAction SilentlyContinue
-if (-not (Test-Path "$dest\bin\mise.exe")) { throw "mise.exe not found after extraction" }
-
-# Add mise to the machine PATH (persists through generalize; visible to all sessions).
-$bin = "$dest\bin"
-$machPath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
-if ($machPath -notlike "*$bin*") {
-    [Environment]::SetEnvironmentVariable('Path', "$machPath;$bin", 'Machine')
-    Write-Host "Added $bin to machine PATH."
+if (Get-FileWithRetry -Url "https://github.com/jdx/mise/releases/download/v$MiseVersion/mise-v$MiseVersion-windows-x64.zip" `
+        -OutFile $miseZip -Sha256 $MiseSha256) {
+    $dest = 'C:\Program Files\mise'
+    $tmp  = "$env:TEMP\mise-extract"
+    Remove-Item $dest, $tmp -Recurse -Force -ErrorAction SilentlyContinue
+    Expand-Archive -Path $miseZip -DestinationPath $tmp -Force       # zip has a top-level 'mise\' dir
+    Move-Item -Path "$tmp\mise" -Destination $dest
+    Remove-Item $miseZip, $tmp -Recurse -Force -ErrorAction SilentlyContinue
+    if (Test-Path "$dest\bin\mise.exe") {
+        $bin = "$dest\bin"
+        $machPath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+        if ($machPath -notlike "*$bin*") { [Environment]::SetEnvironmentVariable('Path', "$machPath;$bin", 'Machine') }
+        Write-Host "mise $MiseVersion installed at $dest."
+    } else { Write-Warning "mise.exe missing after extraction; continuing without mise." }
+} else {
+    Write-Warning "mise download failed after retries; continuing without mise."
 }
-Write-Host "mise $MiseVersion installed at $dest."
+
+Write-Host "=== dev tools step complete ==="
+exit 0
