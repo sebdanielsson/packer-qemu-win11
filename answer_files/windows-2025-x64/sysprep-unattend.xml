@@ -75,8 +75,8 @@
             <FirstLogonCommands>
                 <SynchronousCommand wcm:action="add">
                     <Order>1</Order>
-                    <CommandLine>%windir%\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Get-NetConnectionProfile | Set-NetConnectionProfile -NetworkCategory Private -ErrorAction SilentlyContinue; Enable-PSRemoting -Force -SkipNetworkProfileCheck; Set-Item -Force WSMan:\localhost\Service\Auth\Basic -Value $true; Set-Item -Force WSMan:\localhost\Service\AllowUnencrypted -Value $true; Set-Service WinRM -StartupType Automatic; Restart-Service WinRM"</CommandLine>
-                    <Description>Re-enable WinRM (Basic + unencrypted)</Description>
+                    <CommandLine>%windir%\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Get-NetConnectionProfile | Set-NetConnectionProfile -NetworkCategory Private -ErrorAction SilentlyContinue; Set-Service WinRM -StartupType Automatic; Start-Service WinRM; if (-not (Get-ChildItem WSMan:\localhost\Listener -ErrorAction SilentlyContinue | Where-Object { $_.Keys -match 'Transport=HTTP$' })) { New-Item -Path WSMan:\localhost\Listener -Transport HTTP -Address * -Force -ErrorAction SilentlyContinue }; Set-Item -Force WSMan:\localhost\Service\Auth\Basic -Value $true; Set-Item -Force WSMan:\localhost\Service\AllowUnencrypted -Value $true; Restart-Service WinRM"</CommandLine>
+                    <Description>Re-enable WinRM (Basic + unencrypted, no quickconfig)</Description>
                 </SynchronousCommand>
                 <!-- Windows Update is intentionally left disabled on deployed agents
                      (patch by rebuilding the image, not in place). -->
