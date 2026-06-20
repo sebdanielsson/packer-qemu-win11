@@ -74,7 +74,9 @@ variable "cpus" {
 }
 variable "memory" {
   type    = number
-  default = 4096
+  # 6 GB (top of the 4-6 GB build budget): extra page cache cuts the disk I/O
+  # thrashing during the DISM cumulative-update apply on the slow /chungus raidz1.
+  default = 6144
 }
 
 # --- Capture every domain the build talks to (for firewall whitelisting). ---

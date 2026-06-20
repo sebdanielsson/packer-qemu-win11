@@ -71,9 +71,13 @@ build {
   provisioner "powershell" { inline = ["Write-Host '=== Reboot complete - building base image ==='"] }
 
   # Bake the latest cumulative update (offline .msu via DISM). Best-effort.
+  # 4h timeout: DISM /Add-Package of the full ~2.4 GB cumulative does heavy
+  # component-store I/O, which is slow on the /chungus raidz1 (spinning WD Greens) -
+  # it blew a 2h timeout once. The curl download itself is fast (~38 MB/s); the time
+  # is all DISM applying on slow storage.
   provisioner "powershell" {
     script  = "scripts/install-windows-updates.ps1"
-    timeout = "2h"
+    timeout = "4h"
   }
   provisioner "windows-restart" { restart_timeout = "1h" }
 
