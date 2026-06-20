@@ -70,6 +70,11 @@ build {
     timeout = "4h"
   }
 
+  # VS leaves a pending-reboot/Windows-Installer-busy state; reboot before the next
+  # MSI (Chrome) or its msiexec blocks forever on the _MSIExecute mutex (this hung
+  # install-dev-tools for the full provisioner timeout and errored the build).
+  provisioner "windows-restart" { restart_timeout = "30m" }
+
   # Extra dev tooling: mise + latest stable Google Chrome.
   provisioner "powershell" {
     script  = "scripts/install-dev-tools.ps1"

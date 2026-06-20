@@ -18,7 +18,20 @@ New-Item -ItemType Directory -Force -Path $AgentDir | Out-Null
 
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 Write-Host "Downloading $Url ..."
-Invoke-WebRequest -Uri $Url -OutFile $Zip -UseBasicParsing
+# Retry transient download failures (still fail hard after 4 tries / on checksum
+# mismatch - the agent IS the point of the image, so a missing agent must error).
+$ok = $false
+for ($i = 1; $i -le 4; $i++) {
+    try {
+        Invoke-WebRequest -Uri $Url -OutFile $Zip -UseBasicParsing -TimeoutSec 120
+        if ((Get-Item $Zip).Length -lt 1MB) { throw "download too small ($((Get-Item $Zip).Length) bytes) - partial/blocked" }
+        $ok = $true; break
+    } catch {
+        Write-Host "  download attempt $i/4 failed: $_"
+        Start-Sleep -Seconds (10 * $i)
+    }
+}
+if (-not $ok) { throw "failed to download agent package after 4 attempts: $Url" }
 
 $actual = (Get-FileHash -Algorithm SHA256 -Path $Zip).Hash
 if ($actual -ne $Sha256) {

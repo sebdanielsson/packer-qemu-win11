@@ -13,7 +13,9 @@ function Get-FileWithRetry {
     for ($i = 1; $i -le $Tries; $i++) {
         try {
             Remove-Item $OutFile -Force -ErrorAction SilentlyContinue
-            Invoke-WebRequest -Uri $Url -OutFile $OutFile -UseBasicParsing
+            # -TimeoutSec guards the connect/response (not the byte transfer), so a
+            # hung/dead endpoint aborts and retries instead of stalling the build.
+            Invoke-WebRequest -Uri $Url -OutFile $OutFile -UseBasicParsing -TimeoutSec 120
             $len = (Get-Item $OutFile).Length
             if ($len -lt $MinBytes) { throw "too small ($len bytes, expected >= $MinBytes) - partial/blocked download" }
             if ($Sha256) {
@@ -43,9 +45,18 @@ $chromeMsi = "$env:TEMP\chrome-enterprise.msi"
 # always-latest stable enterprise build (not pinned); ~150 MB, so require >= 100 MB
 if (Get-FileWithRetry -Url 'https://dl.google.com/edgedl/chrome/install/GoogleChromeStandaloneEnterprise64.msi' `
         -OutFile $chromeMsi -MinBytes 100MB) {
-    $p = Start-Process msiexec.exe -ArgumentList '/i', $chromeMsi, '/qn', '/norestart' -Wait -PassThru
-    if ($p.ExitCode -in @(0, 3010)) { Write-Host "Chrome installed." }
-    else { Write-Warning "Chrome MSI returned $($p.ExitCode); continuing without Chrome." }
+    # Bound msiexec: if Windows Installer is wedged (e.g. a pending reboot holds the
+    # _MSIExecute mutex), -Wait would block until the provisioner timeout and ERROR
+    # the whole build. Wait at most 15 min, then kill and continue (best-effort).
+    $p = Start-Process msiexec.exe -ArgumentList '/i', $chromeMsi, '/qn', '/norestart' -PassThru
+    if ($p.WaitForExit(900000)) {
+        if ($p.ExitCode -in @(0, 3010)) { Write-Host "Chrome installed." }
+        else { Write-Warning "Chrome MSI returned $($p.ExitCode); continuing without Chrome." }
+    } else {
+        Write-Warning "Chrome msiexec did not finish within 15 min; killing it and continuing without Chrome."
+        try { $p.Kill() } catch {}
+        Get-Process msiexec -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    }
     Remove-Item $chromeMsi -Force -ErrorAction SilentlyContinue
 } else {
     Write-Warning "Chrome download failed after retries; continuing without Chrome."
