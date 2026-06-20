@@ -9,8 +9,13 @@ $ErrorActionPreference = 'Continue'
 
 # Bump monthly. Latest Server 2025 (build 26100) cumulative update.
 $Kb = 'KB5094125'
-# Optional: set a direct .msu URL to bypass the Update Catalog entirely.
-$MsuUrl = ''
+# Direct .msu from the Update Catalog CDN, pinned to bypass the MSCatalog scrape
+# (catalog.microsoft.com persistently errored for MSCatalog's in-guest requests even
+# though the catalog itself is up). This is the combined SSU+LCU for KB5094125
+# (Server 2025 / "server operating system 24H2", build 26100.32995, ~2.4 GB). Bump
+# this URL together with $Kb each month - re-derive it from the catalog DownloadDialog
+# for the new KB's update GUID. Set to '' to fall back to the MSCatalog scrape.
+$MsuUrl = 'https://catalog.sf.dl.delivery.mp.microsoft.com/filestreamingservice/files/7bb8f378-6d48-4161-ac28-0be28444e642/public/windows11.0-kb5094125-x64_8e89fa4917df313fe118b9fe150611975ab92565.msu'
 
 $dir = 'C:\Windows\Temp\updates'
 New-Item -ItemType Directory -Force -Path $dir | Out-Null
@@ -25,7 +30,11 @@ for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
         if ($MsuUrl) {
             Write-Host "=== Downloading update from $MsuUrl (attempt $attempt/$maxAttempts) ==="
             $msu = Join-Path $dir 'update.msu'
-            Invoke-WebRequest -Uri $MsuUrl -OutFile $msu -UseBasicParsing
+            # curl.exe, NOT Invoke-WebRequest: this is a ~2.4 GB file over QEMU's slow
+            # user-mode NAT, and IWR has no transfer-stall timeout (would hang forever).
+            # Generous --max-time (1 h) for the size; --speed-time aborts a true stall.
+            & curl.exe -L -f --connect-timeout 30 --max-time 3600 --speed-limit 5000 --speed-time 120 -o $msu $MsuUrl
+            if ($LASTEXITCODE -ne 0) { throw "curl failed with exit code $LASTEXITCODE" }
         } else {
             Write-Host "=== Fetching $Kb from the Microsoft Update Catalog via MSCatalog (attempt $attempt/$maxAttempts) ==="
             Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -ErrorAction Stop | Out-Null
