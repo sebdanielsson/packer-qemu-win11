@@ -110,7 +110,12 @@ packer build -only='buildserver.*' \
   -var local_libvirt_images=$ISO -var output_dir=$OUT \
   -var base_image=$GOLD/windows-2025-base.qcow2 \
   -var base_efivars=$GOLD/windows-2025-base-efivars.fd .
-mv $OUT/windows-2025-x64-buildserver $GOLD/windows-server-2025-vs2026.qcow2
+
+# IMPORTANT: the buildserver source uses use_backing_file=true, so packer's output
+# (windows-2025-x64-buildserver) is a thin OVERLAY on the base - it is NOT deployable
+# on its own. Flatten it into a self-contained qcow2 before uploading anywhere:
+qemu-img convert -O qcow2 $OUT/windows-2025-x64-buildserver $GOLD/windows-server-2025-vs2026.qcow2
+# (build-buildserver.sh on the Proxmox host already does this flatten for you.)
 scripts/extract-domains.sh $OUT/traffic-buildserver.pcap > $GOLD/domains-buildserver.txt
 ```
 
