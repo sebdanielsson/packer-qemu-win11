@@ -23,7 +23,10 @@ Write-Host "Downloading $Url ..."
 $ok = $false
 for ($i = 1; $i -le 4; $i++) {
     try {
-        Invoke-WebRequest -Uri $Url -OutFile $Zip -UseBasicParsing -TimeoutSec 120
+        # curl.exe (not IWR): hard --max-time + --speed-time so a stalled transfer
+        # over QEMU's slow NAT aborts and retries instead of hanging the build.
+        & curl.exe -L -f --connect-timeout 30 --max-time 900 --speed-limit 10240 --speed-time 60 -o $Zip $Url
+        if ($LASTEXITCODE -ne 0) { throw "curl failed with exit code $LASTEXITCODE" }
         if ((Get-Item $Zip).Length -lt 1MB) { throw "download too small ($((Get-Item $Zip).Length) bytes) - partial/blocked" }
         $ok = $true; break
     } catch {

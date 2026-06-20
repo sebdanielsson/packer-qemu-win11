@@ -13,9 +13,15 @@ function Get-FileWithRetry {
     for ($i = 1; $i -le $Tries; $i++) {
         try {
             Remove-Item $OutFile -Force -ErrorAction SilentlyContinue
-            # -TimeoutSec guards the connect/response (not the byte transfer), so a
-            # hung/dead endpoint aborts and retries instead of stalling the build.
-            Invoke-WebRequest -Uri $Url -OutFile $OutFile -UseBasicParsing -TimeoutSec 120
+            # Use curl.exe (shipped in Server 2025), NOT Invoke-WebRequest: IWR has no
+            # transfer/inactivity timeout, so a mid-download stall over QEMU's slow
+            # user-mode NAT hangs forever (this wedged the 150 MB Chrome download for
+            # the whole 60-min provisioner timeout and errored the build). curl's
+            # --max-time hard-caps each attempt and --speed-time aborts a stalled
+            # transfer, so a download can never hang the build.
+            & curl.exe -L -f --connect-timeout 30 --max-time 900 `
+                --speed-limit 10240 --speed-time 60 -o $OutFile $Url
+            if ($LASTEXITCODE -ne 0) { throw "curl failed with exit code $LASTEXITCODE" }
             $len = (Get-Item $OutFile).Length
             if ($len -lt $MinBytes) { throw "too small ($len bytes, expected >= $MinBytes) - partial/blocked download" }
             if ($Sha256) {
