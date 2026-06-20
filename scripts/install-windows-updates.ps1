@@ -16,29 +16,42 @@ $dir = 'C:\Windows\Temp\updates'
 New-Item -ItemType Directory -Force -Path $dir | Out-Null
 $msu = $null
 
-try {
-    if ($MsuUrl) {
-        Write-Host "=== Downloading update from $MsuUrl ==="
-        $msu = Join-Path $dir 'update.msu'
-        Invoke-WebRequest -Uri $MsuUrl -OutFile $msu -UseBasicParsing
-    } else {
-        Write-Host "=== Fetching $Kb from the Microsoft Update Catalog (via MSCatalog) ==="
-        Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -ErrorAction Stop | Out-Null
-        Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction SilentlyContinue
-        if (-not (Get-Module -ListAvailable -Name MSCatalog)) {
-            Install-Module -Name MSCatalog -Force -Scope AllUsers -ErrorAction Stop
+# catalog.microsoft.com routinely returns transient "site has encountered an error"
+# responses, which fail a single MSCatalog scrape. Retry with backoff so one hiccup
+# doesn't leave the base unpatched. For full determinism, pin $MsuUrl above instead.
+$maxAttempts = 4
+for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+    try {
+        if ($MsuUrl) {
+            Write-Host "=== Downloading update from $MsuUrl (attempt $attempt/$maxAttempts) ==="
+            $msu = Join-Path $dir 'update.msu'
+            Invoke-WebRequest -Uri $MsuUrl -OutFile $msu -UseBasicParsing
+        } else {
+            Write-Host "=== Fetching $Kb from the Microsoft Update Catalog via MSCatalog (attempt $attempt/$maxAttempts) ==="
+            Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -ErrorAction Stop | Out-Null
+            Set-PSRepository -Name PSGallery -InstallationPolicy Trusted -ErrorAction SilentlyContinue
+            if (-not (Get-Module -ListAvailable -Name MSCatalog)) {
+                Install-Module -Name MSCatalog -Force -Scope AllUsers -ErrorAction Stop
+            }
+            Import-Module MSCatalog
+            $upd = Get-MSCatalogUpdate -Search $Kb -ErrorAction Stop |
+                Where-Object { $_.Title -match 'x64' -and $_.Title -match 'Cumulative' } |
+                Sort-Object -Property LastUpdated -Descending | Select-Object -First 1
+            if (-not $upd) { throw "no x64 cumulative update found for $Kb in the catalog" }
+            Write-Host "  found: $($upd.Title)"
+            $upd | Save-MSCatalogUpdate -Destination $dir -ErrorAction Stop
+            $msu = (Get-ChildItem -Path "$dir\*.msu" | Select-Object -First 1).FullName
         }
-        Import-Module MSCatalog
-        $upd = Get-MSCatalogUpdate -Search $Kb -ErrorAction Stop |
-            Where-Object { $_.Title -match 'x64' -and $_.Title -match 'Cumulative' } |
-            Sort-Object -Property LastUpdated -Descending | Select-Object -First 1
-        if (-not $upd) { throw "no x64 cumulative update found for $Kb in the catalog" }
-        Write-Host "  found: $($upd.Title)"
-        $upd | Save-MSCatalogUpdate -Destination $dir -ErrorAction Stop
-        $msu = (Get-ChildItem -Path "$dir\*.msu" | Select-Object -First 1).FullName
+        if ($msu -and (Test-Path $msu)) { break }
+    } catch {
+        Write-Warning "attempt $attempt/$maxAttempts to obtain the update failed: $_"
+        $msu = $null
     }
-} catch {
-    Write-Warning "Could not obtain the cumulative update ($_). Continuing without it - the base is still usable; rebuild when the catalog is reachable."
+    if ($attempt -lt $maxAttempts) { Start-Sleep -Seconds (20 * $attempt) }
+}
+if (-not ($msu -and (Test-Path $msu))) {
+    Write-Warning "Could not obtain the cumulative update after $maxAttempts attempts. Continuing without it - the base is still usable; rebuild when the catalog is reachable, or pin a direct .msu URL in `$MsuUrl."
+    $msu = $null
 }
 
 if ($msu -and (Test-Path $msu)) {
