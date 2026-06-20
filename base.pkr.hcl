@@ -29,7 +29,7 @@ source "qemu" "base" {
   floppy_files = ["answer_files/${var.os_name}-${var.os_version}-${var.os_arch}/Autounattend.xml"]
 
   disk_interface = "virtio-scsi"
-  disk_size      = "128G"
+  disk_size      = var.disk_size
   disk_discard   = "unmap"
 
   iso_url         = var.iso_url

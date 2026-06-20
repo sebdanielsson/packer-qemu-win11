@@ -60,6 +60,14 @@ variable "base_efivars" {
 }
 
 # --- VM sizing (the host's RAM ceiling -> 4 GB) ---
+# disk_size MUST be identical for base and buildserver: the buildserver disk is a
+# qcow2 overlay on the base, and an overlay smaller than its backing file truncates
+# the disk (cutting off the GPT backup header -> boot failure 0xc000000f). Shared
+# here so the two sources can never drift.
+variable "disk_size" {
+  type    = string
+  default = "128G"
+}
 variable "cpus" {
   type    = number
   default = 4

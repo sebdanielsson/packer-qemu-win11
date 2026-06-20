@@ -31,6 +31,9 @@ source "qemu" "buildserver" {
   iso_url          = var.base_image
   iso_checksum     = "none"
   disk_interface   = "virtio-scsi"
+  # MUST match the base's disk_size: a smaller overlay truncates the backing disk
+  # and corrupts the GPT -> boot failure 0xc000000f. Shared var keeps them in lockstep.
+  disk_size        = var.disk_size
   disk_discard     = "unmap"
 
   qemuargs = concat(
