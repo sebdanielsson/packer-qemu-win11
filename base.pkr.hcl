@@ -91,6 +91,11 @@ build {
     timeout = "10m"
   }
 
+  # Reboot to clear any pending-reboot/Windows-Installer-busy state left by the
+  # cumulative update before the next MSI (PowerShell 7) - that state made the PS7
+  # msiexec fail (exit ~16001) and abort the whole base build.
+  provisioner "windows-restart" { restart_timeout = "1h" }
+
   # PowerShell 7 lives in the base (broadly useful).
   provisioner "powershell" {
     script  = "scripts/install-powershell.ps1"
