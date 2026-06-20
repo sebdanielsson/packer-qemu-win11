@@ -45,14 +45,27 @@ try {
 # /quiet is REQUIRED for non-interactive runs (packer/WinRM, session 0): without
 # it, sysprep can pop a message box that blocks invisibly forever instead of
 # erroring. /mode:vm skips physical-hardware generalization (VM-to-VM template).
-Write-Host "Running Sysprep /generalize /oobe /shutdown /quiet /mode:vm ..."
-& $sysprep /generalize /oobe /shutdown /quiet /mode:vm "/unattend:$UnattendPath"
-# On success the VM powers off itself. If sysprep errored it returns non-zero and
-# does NOT shut down - in that case power off anyway so packer still keeps the
-# build artifact (as a non-generalized image, which verification will catch)
-# rather than erroring and deleting hours of work. Check setuperr.log if so.
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "WARNING: Sysprep returned $LASTEXITCODE (see C:\Windows\System32\Sysprep\Panther\setuperr.log). Shutting down anyway to preserve the artifact."
-    Start-Sleep -Seconds 5
-    Stop-Computer -Force
+#
+# We run WITHOUT /shutdown and instead wait for the completion tag, then power off
+# ourselves. Why: with /shutdown, sysprep returns control to this script (with a
+# BLANK exit code) the instant the OS begins powering off, and the old fallback
+# `Stop-Computer -Force` RACED it - hard-killing sysprep mid-generalize before it
+# wrote Sysprep_succeeded.tag. That left a half-generalized image that fails OOBE
+# on deploy (no SID reset, won't boot to a usable desktop). Waiting for the tag is
+# deterministic: generalize is provably complete before we cut power.
+$tag = "$env:windir\System32\Sysprep\Sysprep_succeeded.tag"
+Remove-Item $tag -Force -ErrorAction SilentlyContinue
+Write-Host "Running Sysprep /generalize /oobe /quiet /mode:vm (waiting for the completion tag)..."
+& $sysprep /generalize /oobe /quiet /mode:vm "/unattend:$UnattendPath"
+$rc = $LASTEXITCODE
+# sysprep may detach and keep working after the call returns; wait up to 15 min for
+# generalize to actually finish (the tag is written only on full success).
+$deadline = (Get-Date).AddMinutes(15)
+while (-not (Test-Path $tag) -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 5 }
+if (Test-Path $tag) {
+    Write-Host "Sysprep generalize SUCCEEDED (Sysprep_succeeded.tag present). Powering off."
+} else {
+    Write-Host "WARNING: Sysprep_succeeded.tag absent after 15 min (sysprep rc=$rc); see C:\Windows\System32\Sysprep\Panther\setuperr.log. Powering off anyway to preserve the artifact (image will NOT be generalized)."
 }
+Start-Sleep -Seconds 3
+Stop-Computer -Force
