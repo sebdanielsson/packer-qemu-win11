@@ -100,9 +100,18 @@ if (Get-FileWithRetry -Url "https://github.com/jdx/mise/releases/download/v$Mise
     Remove-Item $miseZip, $tmp -Recurse -Force -ErrorAction SilentlyContinue
     if (Test-Path "$dest\bin\mise.exe") {
         $bin = "$dest\bin"
+        # mise writes per-tool shims to %LOCALAPPDATA%\mise\shims; putting that on
+        # PATH makes `mise use -g <tool>` directly invocable (no `mise exec`/activate
+        # needed) in CI shells. The build runs as builder, so this resolves to
+        # C:\Users\builder\AppData\Local\mise\shims.
+        $shims = Join-Path $env:LOCALAPPDATA 'mise\shims'
+        New-Item -ItemType Directory -Force -Path $shims | Out-Null
         $machPath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
-        if ($machPath -notlike "*$bin*") { [Environment]::SetEnvironmentVariable('Path', "$machPath;$bin", 'Machine') }
-        Write-Host "mise $MiseVersion installed at $dest."
+        foreach ($d in @($bin, $shims)) { if ($machPath -notlike "*$d*") { $machPath = "$machPath;$d" } }
+        [Environment]::SetEnvironmentVariable('Path', $machPath, 'Machine')
+        $env:Path = "$env:Path;$bin;$shims"
+        & "$bin\mise.exe" reshim 2>$null   # create the shims dir now
+        Write-Host "mise $MiseVersion installed at $dest; bin + shims on PATH ($shims)."
     } else { Write-Warning "mise.exe missing after extraction; continuing without mise." }
 } else {
     Write-Warning "mise download failed after retries; continuing without mise."
