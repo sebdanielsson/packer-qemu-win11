@@ -12,16 +12,19 @@
     C:\azp\enroll.json - which is the hook OpenShift/KubeVirt (or Proxmox cloud-
     init) drops in at deploy time from a Secret/ConfigMap. Example enroll.json:
         {
-          "OrgUrl":    "https://devops.example.local/DefaultCollection",
-          "Pool":      "windows-vs2026",
+          "OrgUrl":    "https://devops.example.local",
+          "Pool":      "windows-pool",
           "Token":     "<PAT>",
           "AgentName": "",            // blank => computer name
           "Replace":   true
         }
 
 .NOTES
-    On-prem Azure DevOps Server: OrgUrl is the collection URL
-    (https://<server>/<collection>). For cloud it's https://dev.azure.com/<org>.
+    OrgUrl must match where the agent POOL lives - it is NOT a project/repo URL:
+      - Azure DevOps Server, server-level (organization) pool: the server ROOT,
+        e.g. https://devops.example.local  (do NOT append a collection or project)
+      - Azure DevOps Server, collection-scoped pool: https://<server>/<collection>
+      - Azure DevOps (cloud): https://dev.azure.com/<org>
     PAT needs the "Agent Pools (read & manage)" scope.
 #>
 [CmdletBinding()]
