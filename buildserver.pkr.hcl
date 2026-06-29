@@ -106,15 +106,8 @@ build {
     timeout = "60m"
   }
 
-  # Stage the enrollment + sysprep helpers.
-  provisioner "file" {
-    source      = "scripts/enroll-azure-pipelines-agent.ps1"
-    destination = "C:\\azp\\enroll-azure-pipelines-agent.ps1"
-  }
-  provisioner "file" {
-    source      = "scripts/enroll-github-runner.ps1"
-    destination = "C:\\actions-runner\\enroll-github-runner.ps1"
-  }
+  # Stage the sysprep helpers. Enrollment is done at deploy time with the runners'
+  # own scripts (config.cmd/run.cmd/svc.cmd) directly - no wrapper is baked in.
   provisioner "file" {
     source      = "answer_files/windows-2025-x64/sysprep-unattend.xml"
     destination = "C:\\sysprep-unattend.xml"
