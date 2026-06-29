@@ -81,6 +81,20 @@ build {
     timeout = "60m"
   }
 
+  # QEMU guest agent (virtio-win guest tools) so OpenShift/KubeVirt gets guest
+  # integration (reported IP/OS, graceful shutdown, snapshot quiesce).
+  provisioner "powershell" {
+    script  = "scripts/install-qemu-guest-agent.ps1"
+    timeout = "30m"
+  }
+
+  # cloudbase-init so deployed VMs self-configure at first boot from a KubeVirt
+  # cloudInitConfigDrive / Proxmox cloud-init drive (proxy/CA + agent enrollment).
+  provisioner "powershell" {
+    script  = "scripts/install-cloudbase-init.ps1"
+    timeout = "30m"
+  }
+
   # Bundle (but do not configure) BOTH CI agents - the choice is made at
   # provision/boot time by whichever enroll script runs.
   provisioner "powershell" {
