@@ -17,6 +17,14 @@ if (Get-Command pwsh -ErrorAction SilentlyContinue) {
     pwsh -NoProfile -Command "Set-ExecutionPolicy -Scope LocalMachine -ExecutionPolicy Unrestricted -Force"
 }
 
+# Enable Windows Developer Mode (sideload loose/unsigned apps, create symlinks
+# without elevation, etc.) - the registry equivalent of the Settings > System >
+# For developers > Developer Mode toggle.
+$devKey = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock'
+New-Item -Path $devKey -Force | Out-Null
+New-ItemProperty -Path $devKey -Name AllowDevelopmentWithoutDevLicense -Value 1 -PropertyType DWord -Force | Out-Null
+New-ItemProperty -Path $devKey -Name AllowAllTrustedApps              -Value 1 -PropertyType DWord -Force | Out-Null
+
 function Get-FileWithRetry {
     param($Url, $OutFile, [int]$MinBytes = 1, [string]$Sha256 = $null, [int]$Tries = 4)
     for ($i = 1; $i -le $Tries; $i++) {
