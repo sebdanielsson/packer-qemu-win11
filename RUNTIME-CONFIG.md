@@ -6,7 +6,7 @@ on the Windows agent image. Each can be done two ways:
 - **Bake into the image** — add a provisioner step in `windows.pkr.hcl` so every
   build has it (best for org-wide CAs / a fixed corporate proxy).
 - **At deploy time** — run on the deployed VM (e.g. from a KubeVirt sysprep
-  `FirstLogonCommand`, a startup script, or `enroll.json`-style drop-in). Best
+  `FirstLogonCommand`, cloudbase-init `user_data`, or a startup script). Best
   when the value differs per environment.
 
 All snippets are PowerShell, run elevated (the image's `builder` is admin).
@@ -83,10 +83,8 @@ Set machine-wide so all sessions/services inherit them:
 [Environment]::SetEnvironmentVariable('HTTP_PROXY',  'http://proxy.example.local:8080', 'Machine')
 [Environment]::SetEnvironmentVariable('HTTPS_PROXY', 'http://proxy.example.local:8080', 'Machine')
 [Environment]::SetEnvironmentVariable('NO_PROXY',    'localhost,127.0.0.1,.example.local', 'Machine')
-# Some tools read the lowercase forms too:
-[Environment]::SetEnvironmentVariable('http_proxy',  'http://proxy.example.local:8080', 'Machine')
-[Environment]::SetEnvironmentVariable('https_proxy', 'http://proxy.example.local:8080', 'Machine')
-[Environment]::SetEnvironmentVariable('no_proxy',    'localhost,127.0.0.1,.example.local', 'Machine')
+# Windows env var names are case-insensitive, so these UPPERCASE forms also
+# satisfy tools that look for http_proxy/https_proxy/no_proxy - no need to set both.
 ```
 
 ### CI agents specifically

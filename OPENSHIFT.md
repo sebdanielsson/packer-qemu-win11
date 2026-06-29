@@ -42,8 +42,9 @@ kubectl create configmap win2025-sysprep \
   --from-file=autounattend.xml=answer_files/windows-2025-x64/sysprep-unattend.xml
 ```
 
-Use a **Secret** instead of a ConfigMap if you embed the PAT for auto-enrollment
-(see §4). KubeVirt supports either as the sysprep source.
+The sysprep volume only supplies OOBE identity (unique hostname/SID); agent
+enrollment is separate (§4 — via `config.cmd`, or cloudbase-init `user_data`).
+KubeVirt accepts either a ConfigMap or a Secret as the sysprep source.
 
 ## 3. VirtualMachine manifest
 
@@ -98,41 +99,65 @@ spec:
 
 ## 4. Choosing Azure Pipelines *or* GitHub at deploy time
 
-The image bundles **both** CI agents, unconfigured, so one template serves both:
+The image bundles **both** CI agents, **unconfigured**, so one template serves
+either. Configure with each runner's **own** scripts at deploy time — no wrapper:
 
-| | bundled at | enroll script | autostart |
-| --- | --- | --- | --- |
-| Azure Pipelines | `C:\azp\agent` | `C:\azp\enroll-azure-pipelines-agent.ps1` | yes (`--runAsService`) |
-| GitHub Actions  | `C:\actions-runner` | `C:\actions-runner\enroll-github-runner.ps1` | **no** (decide at boot) |
+| | bundled at | configure / run / service |
+| --- | --- | --- |
+| Azure Pipelines | `C:\azp\agent` | `config.cmd` / `run.cmd` / `svc.cmd` |
+| GitHub Actions  | `C:\actions-runner` | `config.cmd` / `run.cmd` / `svc.cmd` |
 
-The baked sysprep run (Order 2 in `sysprep-unattend.xml`) auto-runs the **Azure**
-enrollment only if `C:\azp\enroll.json` exists. To make an instance an Azure
-agent, drop that file at deploy time; to make it a GitHub runner, drop
-`C:\actions-runner\enroll.json` and invoke `enroll-github-runner.ps1` instead.
-Nothing autostarts until one of those is present — that's the boot-time switch.
+Nothing autostarts until you configure one — that's the boot-time switch.
 
-Drop the secrets via a **Secret**-backed sysprep `autounattend.xml` whose
-FirstLogonCommand writes the relevant `enroll.json`, e.g. for Azure:
+### Run as the built-in `builder` account
 
-```xml
-<SynchronousCommand wcm:action="add">
-  <Order>1</Order>
-  <CommandLine>cmd /c mkdir C:\azp 2&gt; nul &amp; powershell -Command "@{OrgUrl='https://devops.example.local/DefaultCollection';Pool='windows-vs2026';Token='REPLACE_PAT';Replace=$true} | ConvertTo-Json | Set-Content C:\azp\enroll.json"</CommandLine>
-</SynchronousCommand>
+Both `config.cmd`s take the service account natively. Register the service under
+the image's local-admin **`.\builder`** (not the default `NT AUTHORITY\NETWORK
+SERVICE`): `builder` owns the warm tool profile (mise shims, .NET/NuGet/npm
+caches) and a **service logon gets the full admin token**, so jobs can write
+`C:\Program Files`, install MSIs, etc. (NETWORK SERVICE can't — that breaks e.g.
+`actions/setup-dotnet`).
+
+**Azure Pipelines** (`--url` = where the *pool* lives; for a server-level pool on
+Azure DevOps Server that's the bare server root, not a collection/project URL):
+```powershell
+cd C:\azp\agent
+.\config.cmd --unattended `
+  --url https://devops.example.local --auth pat --token <PAT> `
+  --pool <windows-pool> --work _work `
+  --runAsService --windowsLogonAccount ".\builder" --windowsLogonPassword "<builder-pw>"
 ```
 
-For GitHub, write `C:\actions-runner\enroll.json` (`Url`, `Token`, `Labels`, …)
-and add a FirstLogonCommand running `enroll-github-runner.ps1` (add `-AsService`
-only when you actually want it to autostart).
+**GitHub Actions** (`--url` = repo / org / enterprise; short-lived registration token):
+```powershell
+cd C:\actions-runner
+.\config.cmd --unattended `
+  --url https://github.example.com/enterprises/<slug> --token <registration-token> `
+  --runnergroup Default --labels self-hosted,windows,vs2026 --work _work --replace `
+  --runasservice --windowslogonaccount ".\builder" --windowslogonpassword "<builder-pw>"
+```
 
-Secrets/scopes: Azure PAT needs **Agent Pools (read & manage)**; on-prem Azure
-DevOps Server `OrgUrl` is the collection URL `https://<server>/<collection>`.
-GitHub needs a short-lived **registration token** (generate via the API with a
-PAT, or from Settings → Actions → Runners); `Url` is org- or repo-level.
+For a throwaway test, drop the service flags and run `.\run.cmd` from an elevated
+shell. Manage the service with `.\svc.cmd status|start|stop|uninstall`.
+
+Secrets/scopes: Azure PAT needs **Agent Pools (read & manage)**. GitHub needs a
+**registration token** (~1h; via the API with a PAT, or Settings → Actions →
+Runners) matching the `--url` scope.
+
+### Automated (cloud-init)
+
+Because the image ships **cloudbase-init**, KubeVirt can drive all of the above
+declaratively: attach a `cloudInitConfigDrive` whose `user_data` is a PowerShell
+script that applies proxy/CA, then runs the `config.cmd` above with values from a
+Secret. No sysprep `FirstLogonCommand`, no `enroll.json`.
 
 ## 5. Notes
-- The agent runs as the `VstsAgent` Windows service (auto-start), so the VM
-  connects to the pool on boot without an interactive logon.
+- The configured agent runs as a Windows service under `.\builder` (auto-start),
+  so the VM joins the pool on boot without an interactive logon.
+- **qemu-guest-agent** is installed, so KubeVirt reports the guest IP/OS
+  (`AgentConnected=True`) and can quiesce the filesystem for online snapshots.
+- `mise` shims are on `PATH`, so `mise use -g <tool>` is directly invocable; the
+  machine execution policy is `Unrestricted` and Developer Mode is on.
 - Scale by creating more `VirtualMachine` objects (each clones the golden PVC and
   gets a unique hostname via sysprep). Consider an OpenShift VM **template** or a
   small controller to template these out.

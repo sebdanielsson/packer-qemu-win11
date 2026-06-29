@@ -32,8 +32,10 @@ there are two import strategies and the choice shapes the whole layout.
 | EFI vars object | `windows-server-2025-vs2026-efivars.fd` — 917,504 B (not used by KubeVirt, see TL;DR) |
 
 The qcow2 is a generalized Windows Server 2025 template: VS 2026 (18.7.1), .NET 10
-(10.0.301), PowerShell 7.6.3, mise, Chrome, Azure Pipelines agent + GitHub Actions
-runner (both unconfigured), Windows Update disabled, patched to build 26100.32995.
+(10.0.301), PowerShell 7.6.3, mise (shims on PATH), Chrome, Azure Pipelines agent
++ GitHub Actions runner (both unconfigured), qemu-guest-agent (virtio-win) and
+cloudbase-init for KubeVirt integration, Developer Mode + Unrestricted execution
+policy, Windows Update disabled, patched to build 26100.32995.
 
 Credentials: a B2 application key with access to that bucket. The keyID looks like
 `00160df9…` and the application key is the secret. **Supply your current key** —
@@ -334,20 +336,23 @@ for clarity.
 ## 6. Per-instance config & agent enrollment (optional)
 
 A bare boot already yields a working, uniquely-named Windows VM. To turn it into a
-specific CI agent at boot, inject config via a KubeVirt **sysprep** volume — the
-mechanics (writing `C:\azp\enroll.json` for Azure, or `C:\actions-runner\enroll.json`
-+ running the GitHub enroll script) are detailed in **`OPENSHIFT.md` §4**. In a
-GitOps repo:
+specific CI agent at boot, enroll with the runner's **own** scripts — the exact
+`config.cmd` invocations (run as the local-admin `.\builder` account) are in
+**`OPENSHIFT.md` §4**. Two ways to deliver them:
 
-- ConfigMap for non-secret OOBE settings (`base/sysprep-configmap.yaml`, key
-  `autounattend.xml`).
-- For the agent PAT/registration token, use a **Secret**-backed sysprep volume and
-  seal it (same SealedSecret/ExternalSecret approach as §4.3) — never commit the
-  raw token.
+- **cloudbase-init** (baked into the image): attach a `cloudInitConfigDrive` whose
+  `user_data` is a PowerShell script that applies proxy/CA, then runs `config.cmd`
+  with values from a Secret. The declarative, GitOps-native path.
+- **sysprep `FirstLogonCommand`**: run the same `config.cmd` from the OOBE
+  `autounattend.xml` (ConfigMap `base/sysprep-configmap.yaml` for non-secret bits).
+
+For the agent PAT / registration token (and the `builder` password), use a
+**Secret** and seal it (SealedSecret/ExternalSecret as in §4.3) — never commit the
+raw token.
 
 Certs (internal CA) and proxy (`HTTP_PROXY`/`HTTPS_PROXY`/`NO_PROXY`) inside the
-guest: see **`RUNTIME-CONFIG.md`** — those steps go into the FirstLogonCommand of
-the sysprep `autounattend.xml`.
+guest: see **`RUNTIME-CONFIG.md`** — run those **before** enrolling (the
+cloudbase-init `user_data` / FirstLogonCommand does this first).
 
 ## 7. The ArgoCD Application
 
