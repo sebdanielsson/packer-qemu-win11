@@ -8,6 +8,15 @@
 $ErrorActionPreference = 'Continue'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
+# Loosen the machine execution policy so CI tasks and the enroll-*.ps1 / runtime
+# proxy-CA scripts run .ps1 files without prompts - expected on a build box.
+# Done here (dev-tools stage), deliberately NOT baked into the stricter base image.
+Set-ExecutionPolicy -Scope LocalMachine -ExecutionPolicy Unrestricted -Force
+# PowerShell 7 keeps its own policy; set it too if pwsh is present.
+if (Get-Command pwsh -ErrorAction SilentlyContinue) {
+    pwsh -NoProfile -Command "Set-ExecutionPolicy -Scope LocalMachine -ExecutionPolicy Unrestricted -Force"
+}
+
 function Get-FileWithRetry {
     param($Url, $OutFile, [int]$MinBytes = 1, [string]$Sha256 = $null, [int]$Tries = 4)
     for ($i = 1; $i -le $Tries; $i++) {
