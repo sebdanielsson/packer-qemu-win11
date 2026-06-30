@@ -65,9 +65,12 @@ build {
   provisioner "powershell" { inline = ["Write-Host '=== Base booted - installing build-server tooling ==='"] }
 
   # Visual Studio Professional 2026 + .NET 10 SDK.
+  # 6h timeout: VS does heavy small-file I/O into the qcow2 on the /chungus raidz1
+  # (spinning WD Greens). It normally finishes in ~1.5h, but under host I/O
+  # contention it once crawled past a 4h timeout and got cancelled mid-install.
   provisioner "powershell" {
     script  = "scripts/install-visual-studio.ps1"
-    timeout = "4h"
+    timeout = "6h"
   }
 
   # VS leaves a pending-reboot/Windows-Installer-busy state; reboot before the next
