@@ -56,11 +56,15 @@ if ($p.ExitCode -notin 0, 3010) { throw "cloudbase-init MSI failed with exit cod
 #  - only localscripts + userdata plugins (no hostname/user/password plugins)
 $confDir = Join-Path $InstallDir 'conf'
 New-Item -ItemType Directory -Force -Path $confDir, (Join-Path $InstallDir 'log'), (Join-Path $InstallDir 'LocalScripts') | Out-Null
+# KubeVirt's cloudInitConfigDrive is an ISO9660 volume on an HDD; cloudbase-init
+# needs bsdtar (bundled in the MSI's bin dir) to extract it. Use the new
+# [config_drive] group (types/locations) - the old config_drive_* keys in [DEFAULT]
+# are deprecated - and iso only (vfat would demand mtools_path we don't ship).
+$bsdtar = Join-Path $InstallDir 'bin\bsdtar.exe'
 $conf = @"
 [DEFAULT]
 metadata_services=cloudbaseinit.metadata.services.configdrive.ConfigDriveService
-config_drive_types=vfat,iso
-config_drive_locations=hdd,cdrom
+bsdtar_path=$bsdtar
 plugins=cloudbaseinit.plugins.common.localscripts.LocalScriptsPlugin,cloudbaseinit.plugins.common.userdata.UserDataPlugin
 allow_reboot=false
 stop_service_on_exit=false
@@ -69,8 +73,23 @@ local_scripts_path=$InstallDir\LocalScripts\
 logdir=$InstallDir\log\
 logfile=cloudbase-init.log
 default_log_levels=comtypes=INFO,suds=INFO,iso8601=WARN,requests=WARN
+
+[config_drive]
+types=iso
+locations=hdd,cdrom
 "@
 Set-Content -Path (Join-Path $confDir 'cloudbase-init.conf') -Value $conf -Encoding ascii
+
+# cloudbase-init refuses to process metadata until sysprep GeneralizationState==7,
+# but this image's OOBE leaves it at 4 (it stalls forever "Waiting for sysprep
+# completion"). SetupComplete.cmd runs at deploy-time setup completion and finalizes
+# it to 7 so cloudbase-init proceeds - fully hands-off.
+$scriptsDir = Join-Path $env:windir 'Setup\Scripts'
+New-Item -ItemType Directory -Force -Path $scriptsDir | Out-Null
+Set-Content -Path (Join-Path $scriptsDir 'SetupComplete.cmd') -Encoding ascii -Value @'
+@echo off
+reg add "HKLM\SYSTEM\Setup\Status\SysprepStatus" /v GeneralizationState /t REG_DWORD /d 7 /f
+'@
 
 # Service auto-starts and runs once per instance-id (so each cloned VM re-applies).
 $svc = Get-Service -Name 'cloudbase-init' -ErrorAction SilentlyContinue
