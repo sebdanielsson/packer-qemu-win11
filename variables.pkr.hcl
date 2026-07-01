@@ -66,7 +66,11 @@ variable "base_efivars" {
 # here so the two sources can never drift.
 variable "disk_size" {
   type    = string
-  default = "128G"
+  # 80G so deployed clones fit an 80Gi PVC (a clone can't be smaller than the
+  # golden's virtual disk). The image currently uses ~41 GB, leaving ~39 GB for
+  # the VS install peak at build time and CI work at runtime - tight but workable;
+  # bump if the build ever runs out of space.
+  default = "80G"
 }
 variable "cpus" {
   type    = number

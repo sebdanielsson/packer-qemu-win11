@@ -79,12 +79,9 @@
                     <Description>Re-enable WinRM (Basic + unencrypted, no quickconfig)</Description>
                 </SynchronousCommand>
                 <!-- Windows Update is intentionally left disabled on deployed agents
-                     (patch by rebuilding the image, not in place). -->
-                <SynchronousCommand wcm:action="add">
-                    <Order>2</Order>
-                    <CommandLine>%windir%\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "if (Test-Path C:\azp\enroll.json) { &amp; C:\azp\enroll-azure-pipelines-agent.ps1 }"</CommandLine>
-                    <Description>Enroll Azure Pipelines agent if secrets were provisioned</Description>
-                </SynchronousCommand>
+                     (patch by rebuilding the image, not in place). Agent enrollment
+                     is done at deploy time (cloudbase-init user_data or config.cmd),
+                     not from here - see OPENSHIFT.md and RUNTIME-CONFIG.md. -->
             </FirstLogonCommands>
         </component>
     </settings>
