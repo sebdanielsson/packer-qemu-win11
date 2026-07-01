@@ -61,6 +61,7 @@ New-Item -ItemType Directory -Force -Path $confDir, (Join-Path $InstallDir 'log'
 # [config_drive] group (types/locations) - the old config_drive_* keys in [DEFAULT]
 # are deprecated - and iso only (vfat would demand mtools_path we don't ship).
 $bsdtar = Join-Path $InstallDir 'bin\bsdtar.exe'
+if (-not (Test-Path -Path $bsdtar)) { throw "bsdtar.exe not found at '$bsdtar' (config drive extraction will fail)" }
 $conf = @"
 [DEFAULT]
 metadata_services=cloudbaseinit.metadata.services.configdrive.ConfigDriveService
