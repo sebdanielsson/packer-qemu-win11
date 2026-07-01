@@ -64,12 +64,23 @@ if (-not ($msu -and (Test-Path $msu))) {
 }
 
 if ($msu -and (Test-Path $msu)) {
-    Write-Host "=== Applying $(Split-Path $msu -Leaf) via DISM ==="
-    & Dism.exe /Online /Add-Package /PackagePath:"$msu" /Quiet /NoRestart
-    $rc = $LASTEXITCODE
-    # 0 = ok, 3010 = ok+reboot-needed (the build reboots next), 0x800f081e = not applicable (already current)
-    if ($rc -in @(0, 3010)) { Write-Host "Cumulative update applied (DISM $rc)." }
-    else { Write-Warning "DISM returned $rc; continuing." }
+    # Retry the DISM apply: it intermittently fails with 0x80071A2D (Win32 6701, a
+    # CBS/KTM servicing-transaction error) when the host is under I/O load - the same
+    # .msu+command that returns 3010 on an idle host returns 6701 under contention.
+    # Between attempts, wait and bounce TrustedInstaller (the CBS worker) to clear the
+    # stuck transaction. 0x800f081e = "not applicable / already installed" -> treat as done.
+    $rc = -1
+    for ($da = 1; $da -le 3; $da++) {
+        Write-Host "=== Applying $(Split-Path $msu -Leaf) via DISM (attempt $da/3) ==="
+        & Dism.exe /Online /Add-Package /PackagePath:"$msu" /Quiet /NoRestart
+        $rc = $LASTEXITCODE
+        if ($rc -in @(0, 3010, 0x800f081e)) { break }
+        Write-Warning "DISM returned $rc (attempt $da/3); bouncing TrustedInstaller and retrying."
+        Stop-Service TrustedInstaller -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 90
+    }
+    if ($rc -in @(0, 3010, 0x800f081e)) { Write-Host "Cumulative update applied (DISM $rc)." }
+    else { Write-Warning "DISM still failing after 3 attempts (rc=$rc); continuing WITHOUT the update - the base will be UNPATCHED (verify build number)." }
     Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue
 } else {
     Write-Host "No update package to apply."
