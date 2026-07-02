@@ -1,6 +1,5 @@
 1d.tlu.dl.delivery.mp.microsoft.com
 activation-v2.sls.microsoft.com
-adl.windows.com
 aka.ms
 arc.msn.com
 au.download.windowsupdate.com
@@ -53,12 +52,10 @@ oneocsp.microsoft.com
 o.pki.goog
 pti.store.microsoft.com
 raw.githubusercontent.com
-reflector.defender.microsoft.com
 release-assets.githubusercontent.com
 sendvsfeedback2.azurewebsites.net
 settings.visualstudio.microsoft.com
 settings-win.data.microsoft.com
-storecatalogrevocation.storequality.microsoft.com
 targetednotifications-tm.trafficmanager.net
 tas01.cwsapp.update.microsoft.com
 tas02.cws.update.microsoft.com
@@ -78,5 +75,4 @@ www.msftconnecttest.com
 www.powershellgallery.com
 www.ssl.com
 x1.c.lencr.org
-yr2.c.lencr.org
 yr.c.lencr.org
