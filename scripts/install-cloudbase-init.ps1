@@ -66,8 +66,13 @@ $conf = @"
 [DEFAULT]
 metadata_services=cloudbaseinit.metadata.services.configdrive.ConfigDriveService
 bsdtar_path=$bsdtar
-plugins=cloudbaseinit.plugins.common.localscripts.LocalScriptsPlugin,cloudbaseinit.plugins.common.userdata.UserDataPlugin
-allow_reboot=false
+# SetHostName first so the Windows computer name is taken from the platform
+# (KubeVirt config-drive local-hostname = the VM/VMPool name) before the userdata
+# runs - decouples naming from enrollment, no rebuild needed to rename later.
+# It requires one reboot to apply, hence allow_reboot=true; the userdata (enroll)
+# runs on the next boot with the final name.
+plugins=cloudbaseinit.plugins.common.sethostname.SetHostNamePlugin,cloudbaseinit.plugins.common.localscripts.LocalScriptsPlugin,cloudbaseinit.plugins.common.userdata.UserDataPlugin
+allow_reboot=true
 stop_service_on_exit=false
 check_latest_version=false
 local_scripts_path=$InstallDir\LocalScripts\
