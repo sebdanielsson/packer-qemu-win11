@@ -33,4 +33,14 @@ Disable-ScheduledTask -TaskPath '\Microsoft\Windows\Server Manager\' -TaskName '
 #    the deployed agent's desktop clean (no foreground prompt on boot).
 Set-Dword 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\OOBE' 'DisablePrivacyExperience' 1
 
+# 4. Remove Windows Defender entirely (throwaway internal CI agents, no egress). Removing the
+#    FEATURE - not just runtime-disabling it - fully unloads the AV engine so it never scans
+#    build I/O (a real speedup for VS + dev-tool installs that follow). Done here in the base
+#    build because the windows-restart right after this script finishes the uninstall.
+Write-Host "Removing Windows Defender feature..."
+try {
+    $r = Uninstall-WindowsFeature -Name Windows-Defender -Remove -ErrorAction Stop
+    Write-Host "  Windows-Defender uninstall requested (RestartNeeded=$($r.RestartNeeded)); completes on next reboot."
+} catch { Write-Host "  WARN: Windows-Defender removal failed: $_" }
+
 Write-Host "Build-server hardening applied."
