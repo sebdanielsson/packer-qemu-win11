@@ -112,14 +112,23 @@ if (Get-FileWithRetry -Url "https://github.com/jdx/mise/releases/download/v$Mise
         $env:Path = "$env:Path;$bin;$shims"
         & "$bin\mise.exe" reshim 2>$null   # create the shims dir now
         Write-Host "mise $MiseVersion installed at $dest; bin + shims on PATH ($shims)."
-        # Pre-install SBOM + vuln-scan tooling globally so CI jobs get them baked in (no runtime
-        # download on the no-egress agents): cdxgen (CycloneDX SBOM) + grype (vulnerability scanner).
-        Write-Host "=== Installing global mise tools: cdxgen + grype ==="
-        & "$bin\mise.exe" use -g aqua:CycloneDX/cdxgen aqua:anchore/grype
+        # Global CI tooling baked into the image so jobs run offline on the no-egress agents:
+        # node LTS + grype (vuln scanner, with its DB primed) + cdxgen (SBOM) from ProGet's npm.
+        Write-Host "=== Installing global mise tools: node@lts + grype ==="
+        & "$bin\mise.exe" use -g node@lts aqua:anchore/grype
         if ($LASTEXITCODE -eq 0) {
             & "$bin\mise.exe" reshim 2>$null
-            Write-Host "cdxgen + grype installed globally via mise."
-        } else { Write-Warning "mise use -g cdxgen/grype failed (exit $LASTEXITCODE); continuing." }
+            Write-Host "node + grype installed globally via mise."
+            # Prime the grype vulnerability DB (refreshed again at VM first boot if a newer one exists).
+            Write-Host "=== grype db update ==="
+            & "$bin\mise.exe" exec -- grype db update
+            if ($LASTEXITCODE -ne 0) { Write-Warning "grype db update failed (exit $LASTEXITCODE); continuing." }
+            # Prefetch cdxgen from the internal ProGet npm registry (refreshed again at VM first boot).
+            Write-Host "=== npm i -g @cyclonedx/cdxgen ==="
+            & "$bin\mise.exe" exec -- npm install -g --registry=https://proget.trafikverket.local/npm/DefaultNpmUnsafe '@cyclonedx/cdxgen@latest'
+            if ($LASTEXITCODE -eq 0) { & "$bin\mise.exe" reshim 2>$null; Write-Host "cdxgen installed via npm." }
+            else { Write-Warning "cdxgen npm install failed (exit $LASTEXITCODE); continuing." }
+        } else { Write-Warning "mise use -g node/grype failed (exit $LASTEXITCODE); continuing." }
     } else { Write-Warning "mise.exe missing after extraction; continuing without mise." }
 } else {
     Write-Warning "mise download failed after retries; continuing without mise."
