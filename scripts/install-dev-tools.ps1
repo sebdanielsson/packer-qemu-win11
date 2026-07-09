@@ -123,9 +123,10 @@ if (Get-FileWithRetry -Url "https://github.com/jdx/mise/releases/download/v$Mise
             Write-Host "=== grype db update ==="
             & "$bin\mise.exe" exec -- grype db update
             if ($LASTEXITCODE -ne 0) { Write-Warning "grype db update failed (exit $LASTEXITCODE); continuing." }
-            # Prefetch cdxgen from the internal ProGet npm registry (refreshed again at VM first boot).
+            # Prefetch cdxgen from the public npm registry (build has internet; the VM's cloud-init
+            # refreshes it from the internal ProGet registry at first boot on the no-egress agents).
             Write-Host "=== npm i -g @cyclonedx/cdxgen ==="
-            & "$bin\mise.exe" exec -- npm install -g --registry=https://proget.trafikverket.local/npm/DefaultNpmUnsafe '@cyclonedx/cdxgen@latest'
+            & "$bin\mise.exe" exec -- npm install -g '@cyclonedx/cdxgen@latest'
             if ($LASTEXITCODE -eq 0) { & "$bin\mise.exe" reshim 2>$null; Write-Host "cdxgen installed via npm." }
             else { Write-Warning "cdxgen npm install failed (exit $LASTEXITCODE); continuing." }
         } else { Write-Warning "mise use -g node/grype failed (exit $LASTEXITCODE); continuing." }
