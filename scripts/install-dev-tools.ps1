@@ -25,6 +25,29 @@ New-Item -Path $devKey -Force | Out-Null
 New-ItemProperty -Path $devKey -Name AllowDevelopmentWithoutDevLicense -Value 1 -PropertyType DWord -Force | Out-Null
 New-ItemProperty -Path $devKey -Name AllowAllTrustedApps              -Value 1 -PropertyType DWord -Force | Out-Null
 
+# Remove Microsoft Defender Antivirus (throwaway internal CI agents, no egress).
+# Removing the FEATURE - not just runtime-disabling it - fully unloads the AV engine
+# so it never scans build I/O. Done here (dev-tools step) NOT in the base harden step:
+# there it ran straight after the cumulative-update reboot and hit a transient CBS
+# servicing conflict that Uninstall-WindowsFeature threw on (silently no-op'd). By
+# now VS is installed and the machine was rebooted right before, so CBS is idle and
+# the removal succeeds. Best-effort + non-fatal; the windows-restart provisioner
+# after this step finalizes the uninstall in the golden image.
+Write-Host "=== Removing Microsoft Defender Antivirus feature ==="
+try {
+    if ((Get-WindowsFeature -Name Windows-Defender).InstallState -eq 'Installed') {
+        $r = Uninstall-WindowsFeature -Name Windows-Defender -Remove -ErrorAction Stop
+        Write-Host "Windows-Defender uninstall: Success=$($r.Success) RestartNeeded=$($r.RestartNeeded)"
+    } else {
+        Write-Host "Windows-Defender already not installed; skipping."
+    }
+} catch {
+    Write-Warning "Windows-Defender removal threw ($_); retrying once after 30s (CBS may be busy)."
+    Start-Sleep -Seconds 30
+    try { Uninstall-WindowsFeature -Name Windows-Defender -Remove -ErrorAction Stop | Out-Null }
+    catch { Write-Warning "Windows-Defender removal failed again ($_); continuing (image still usable)." }
+}
+
 function Get-FileWithRetry {
     param($Url, $OutFile, [int]$MinBytes = 1, [string]$Sha256 = $null, [int]$Tries = 4)
     for ($i = 1; $i -le $Tries; $i++) {

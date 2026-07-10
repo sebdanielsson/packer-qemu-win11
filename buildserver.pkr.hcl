@@ -17,6 +17,13 @@ source "qemu" "buildserver" {
   vnc_port_min     = 5910
   vnc_port_max     = 5910
 
+  # Give qemu time to bind the VNC port before packer connects to type the (empty)
+  # boot command. When the buildserver launches right after the base's ~40 GB promote
+  # copy, the raidz1 write-cache flush keeps host I/O saturated and qemu is slow to
+  # come up; a short/default wait races the bind -> "Error connecting to VNC: connection
+  # refused" -> the build aborts in ~2 min. 45s comfortably covers the slow startup.
+  boot_wait = "45s"
+
   machine_type = "q35"
   cpu_model    = "host"
   cores        = var.cpus
@@ -78,11 +85,17 @@ build {
   # install-dev-tools for the full provisioner timeout and errored the build).
   provisioner "windows-restart" { restart_timeout = "30m" }
 
-  # Extra dev tooling: mise + latest stable Google Chrome.
+  # Extra dev tooling: mise + latest stable Google Chrome, and the Defender feature
+  # removal (Uninstall-WindowsFeature marks it Removed but needs a reboot to finish).
   provisioner "powershell" {
     script  = "scripts/install-dev-tools.ps1"
     timeout = "60m"
   }
+
+  # Finalize the Windows Defender feature removal done in install-dev-tools.ps1
+  # (Uninstall-WindowsFeature -Remove returns RestartRequired), so the golden image
+  # ships with the AV engine fully gone rather than in a pending-removal state.
+  provisioner "windows-restart" { restart_timeout = "30m" }
 
   # QEMU guest agent (virtio-win guest tools) so OpenShift/KubeVirt gets guest
   # integration (reported IP/OS, graceful shutdown, snapshot quiesce).

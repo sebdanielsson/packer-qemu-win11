@@ -64,23 +64,29 @@ if (-not ($msu -and (Test-Path $msu))) {
 }
 
 if ($msu -and (Test-Path $msu)) {
-    # Retry the DISM apply: it intermittently fails with 0x80071A2D (Win32 6701, a
-    # CBS/KTM servicing-transaction error) when the host is under I/O load - the same
-    # .msu+command that returns 3010 on an idle host returns 6701 under contention.
-    # Between attempts, wait and bounce TrustedInstaller (the CBS worker) to clear the
-    # stuck transaction. 0x800f081e = "not applicable / already installed" -> treat as done.
+    # Apply the CU, requiring the CORRECT success code. DISM intermittently fails with
+    # 0x80071A2D (Win32 6701, a CBS/KTM servicing-transaction error) when the host is
+    # under I/O load. The nasty part: after a 6701 the retry can return a BARE 0
+    # ("success, no reboot needed") that is MISLEADING - the broken transaction never
+    # finalized, so the image silently ships UNPATCHED (this is exactly how a base
+    # shipped at 26100.32230 instead of .32995). A fresh CU that really staged returns
+    # 3010 (reboot required), NEVER 0. So we accept ONLY 3010 (or 0x800f081e = already
+    # installed) as success, and on anything else RevertPendingActions (a stuck
+    # transaction won't clear by just bouncing TrustedInstaller) before retrying.
     $rc = -1
-    for ($da = 1; $da -le 3; $da++) {
-        Write-Host "=== Applying $(Split-Path $msu -Leaf) via DISM (attempt $da/3) ==="
+    for ($da = 1; $da -le 4; $da++) {
+        Write-Host "=== Applying $(Split-Path $msu -Leaf) via DISM (attempt $da/4) ==="
         & Dism.exe /Online /Add-Package /PackagePath:"$msu" /Quiet /NoRestart
         $rc = $LASTEXITCODE
-        if ($rc -in @(0, 3010, 0x800f081e)) { break }
-        Write-Warning "DISM returned $rc (attempt $da/3); bouncing TrustedInstaller and retrying."
+        if ($rc -in @(3010, 0x800f081e)) { break }
+        Write-Warning "DISM returned $rc (attempt $da/4) - not the expected 3010 (a bare 0 after a 6701 is a misleading non-apply); reverting pending actions + bouncing TrustedInstaller before retry."
+        & Dism.exe /Online /Cleanup-Image /RevertPendingActions 2>$null | Out-Null
         Stop-Service TrustedInstaller -Force -ErrorAction SilentlyContinue
         Start-Sleep -Seconds 90
     }
-    if ($rc -in @(0, 3010, 0x800f081e)) { Write-Host "Cumulative update applied (DISM $rc)." }
-    else { Write-Warning "DISM still failing after 3 attempts (rc=$rc); continuing WITHOUT the update - the base will be UNPATCHED (verify build number)." }
+    if ($rc -eq 3010) { Write-Host "Cumulative update staged (DISM 3010); the windows-restart after this step finalizes it." }
+    elseif ($rc -eq 0x800f081e) { Write-Host "Update not applicable (0x800f081e) - already present." }
+    else { Write-Warning "Update did NOT stage cleanly after 4 attempts (last rc=$rc); the base will be UNPATCHED - verify the build number (expect .32995), do NOT ship as-is." }
     Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue
 } else {
     Write-Host "No update package to apply."
