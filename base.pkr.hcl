@@ -49,8 +49,14 @@ source "qemu" "base" {
     ] : []
   )
 
-  boot_wait    = "3s"
-  boot_command = ["<down><enter>"]
+  boot_wait    = "2s"
+  # Spam a keypress across the whole "Press any key to boot from CD or DVD..." window.
+  # A single keypress at a fixed boot_wait is timing-flaky: when OVMF POST runs slow
+  # (host under I/O load) the key lands BEFORE the prompt, is discarded, and the VM
+  # falls through to "No bootable device" and hangs until the 5h WinRM timeout. Pressing
+  # enter repeatedly ~1s apart from ~2s..13s reliably hits the prompt regardless of POST
+  # timing; extra presses are harmless (Autounattend.xml drives Setup unattended).
+  boot_command = ["<enter><wait><enter><wait><enter><wait><enter><wait><enter><wait><enter><wait><enter><wait><enter><wait><enter><wait><enter><wait><enter>"]
 
   communicator   = "winrm"
   winrm_timeout  = "5h"
